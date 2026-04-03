@@ -1,8 +1,8 @@
 package services
 
 type Note struct {
-	id   int
-	text string
+	ID   int
+	Text string
 }
 
 type NotesStore struct {
