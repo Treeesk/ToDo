@@ -1,8 +1,8 @@
 package services
 
 type Note struct {
-	ID   int
-	Text string
+	ID   int    `json:"id"`
+	Text string `json:"text"`
 }
 
 type NotesStore struct {
@@ -17,6 +17,14 @@ func NewNotesStore() *NotesStore {
 	}
 }
 
+// Возвращаем все заметки
 func (s *NotesStore) GetAll() []Note {
 	return s.notes
+}
+
+// Добавляем заметку
+func (s *NotesStore) Add(text string) {
+	note := Note{ID: s.nextID, Text: text}
+	s.nextID++
+	s.notes = append(s.notes, note)
 }
