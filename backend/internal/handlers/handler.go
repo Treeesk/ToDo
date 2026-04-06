@@ -36,7 +36,7 @@ func (h *HandlerNotes) GetNotes(w http.ResponseWriter, r *http.Request) {
 // Ожидается JSON вида {"text": string}
 func (h *HandlerNotes) AddNote(w http.ResponseWriter, r *http.Request) {
 	type addn struct {
-		Text string `json:"text"`
+		Text *string `json:"text"`
 	}
 	var note addn
 	err := json.NewDecoder(r.Body).Decode(&note)
@@ -45,20 +45,25 @@ func (h *HandlerNotes) AddNote(w http.ResponseWriter, r *http.Request) {
 		log.Println("decode error: ", err)
 		return
 	}
-	if strings.TrimSpace(note.Text) == "" {
+	if note.Text == nil {
+		writeJsonError(w, http.StatusBadRequest, "the text field is missing")
+		log.Println("error: the text field is missing")
+		return
+	}
+	if strings.TrimSpace(*(note.Text)) == "" {
 		writeJsonError(w, http.StatusBadRequest, "text is required")
 		log.Println("error: text is required")
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
-	h.store.Add(note.Text)
+	h.store.Add(*(note.Text))
 }
 
 // Функция для удаления заметок
 // Ожидается JSON вида {"id": int}
 func (h *HandlerNotes) DelNote(w http.ResponseWriter, r *http.Request) {
 	type deln struct {
-		ID int `json:"id"`
+		ID *int `json:"id"`
 	}
 	var id deln
 	err := json.NewDecoder(r.Body).Decode(&id)
@@ -67,7 +72,50 @@ func (h *HandlerNotes) DelNote(w http.ResponseWriter, r *http.Request) {
 		log.Println("decode error: ", err)
 		return
 	}
-	err = h.store.Del(id.ID)
+	if id.ID == nil {
+		writeJsonError(w, http.StatusBadRequest, "the id field is missing")
+		log.Println("error: the id field is missing")
+		return
+	}
+	err = h.store.Del(*(id.ID))
+	if err != nil {
+		writeJsonError(w, 400, err.Error())
+		log.Println(err)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+// Функция редактирования заметок
+// Ожидается JSON вида {"id": int, "text": string}
+func (h *HandlerNotes) EditNote(w http.ResponseWriter, r *http.Request) {
+	type editn struct {
+		ID   *int    `json:"id"`
+		Text *string `json:"text"`
+	}
+	var note editn
+	err := json.NewDecoder(r.Body).Decode(&note)
+	if err != nil {
+		jsonDecodeError(w, err)
+		log.Println("decode error: ", err)
+		return
+	}
+	if note.ID == nil {
+		writeJsonError(w, http.StatusBadRequest, "the id field is missing")
+		log.Println("error: the id field is missing")
+		return
+	}
+	if note.Text == nil {
+		writeJsonError(w, http.StatusBadRequest, "the text field is missing")
+		log.Println("error: the text field is missing")
+		return
+	}
+	if strings.TrimSpace(*(note.Text)) == "" {
+		writeJsonError(w, http.StatusBadRequest, "text is required")
+		log.Println("error: text is required")
+		return
+	}
+	err = h.store.Edit(*(note.ID), *(note.Text))
 	if err != nil {
 		writeJsonError(w, 400, err.Error())
 		log.Println(err)

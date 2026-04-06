@@ -45,3 +45,12 @@ func (s *NotesStore) Del(id int) error {
 	}
 	return nil
 }
+
+// Изменение заметки
+func (s *NotesStore) Edit(id int, text string) error {
+	if id < 1 || id >= s.nextID {
+		return fmt.Errorf("bad ID: %d", id)
+	}
+	s.notes[id-1].Text = text
+	return nil
+}

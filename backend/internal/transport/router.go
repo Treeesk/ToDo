@@ -12,4 +12,5 @@ func Setuprouter(store *services.NotesStore) {
 	http.HandleFunc("/api/", handler.GetNotes)
 	http.HandleFunc("/api/add/", handler.AddNote)
 	http.HandleFunc("/api/del/", handler.DelNote)
+	http.HandleFunc("/api/edit/", handler.EditNote)
 }
