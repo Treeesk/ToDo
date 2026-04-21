@@ -33,3 +33,9 @@ func jsonDecodeError(w http.ResponseWriter, err error) {
 		writeJsonError(w, http.StatusBadRequest, "Error: invalid request body")
 	}
 }
+
+// Функция отправки ошибки БД в Response в формате JSON
+func ErrorDB(w http.ResponseWriter, err error) {
+	writeJsonError(w, 500, "ERROR DBDBDBDBDBD")
+	// добавить работу с контекстом
+}

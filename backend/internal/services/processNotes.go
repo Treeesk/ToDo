@@ -1,35 +1,31 @@
 package services
 
 import (
+	"ProjectGo/backend/internal/entity"
+	"ProjectGo/backend/internal/repos"
 	"fmt"
 	"slices"
 )
 
-type Note struct {
-	ID   int    `json:"id"`
-	Text string `json:"text"`
-}
-
 type NotesStore struct {
-	nextID int
-	notes  []Note
+	repo *repos.ConnRepo
 }
 
-func NewNotesStore() *NotesStore {
+// Сохранения подключения к бд, чтобы можно было вызывать к этому подключению различные методы
+func NewNotesStore(conn *repos.ConnRepo) *NotesStore {
 	return &NotesStore{
-		nextID: 1,
-		notes:  []Note{},
+		repo: conn,
 	}
 }
 
 // Возвращаем все заметки
-func (s *NotesStore) GetAll() []Note {
-	return s.notes
+func (s *NotesStore) GetAll() ([]entity.Note, error) {
+	return s.repo.GetAllNotes()
 }
 
 // Добавляем заметку
 func (s *NotesStore) Add(text string) {
-	note := Note{ID: s.nextID, Text: text}
+	note := entity.Note{ID: s.nextID, Text: text}
 	s.nextID++
 	s.notes = append(s.notes, note)
 }

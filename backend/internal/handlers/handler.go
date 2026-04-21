@@ -18,10 +18,16 @@ func NewHandlerNotes(store *services.NotesStore) *HandlerNotes {
 }
 
 // Функция возвращающая JSON с полным списком всех заметок
-// Возвращается JSON {"id": id, "text": note}
+// Возвращается JSON {"id": id, "user_id": user_id, "text": note}
 func (h *HandlerNotes) GetNotes(w http.ResponseWriter, r *http.Request) {
 	var buf bytes.Buffer
-	err := json.NewEncoder(&buf).Encode(h.store.GetAll())
+	notes, err := h.store.GetAll()
+	if err != nil {
+		ErrorDB(w, err)
+		log.Println("database error: ", err)
+		return
+	}
+	err = json.NewEncoder(&buf).Encode(notes)
 	if err != nil {
 		writeJsonError(w, http.StatusInternalServerError, "Error: processing in JSON format")
 		log.Println("error: ", err)

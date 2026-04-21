@@ -13,7 +13,8 @@ func main() {
 	cfg := config.Load() // конфиг с переменными окружения
 
 	conn := repos.ConnUrlRepos(cfg)
-	store := services.NewNotesStore() // инициализация заметок
+	defer conn.Conn.Close()
+	store := services.NewNotesStore(conn) // инициализация заметок
 	transport.Setuprouter(store)
 	log.Fatal(http.ListenAndServe(cfg.BaseURL, nil))
 }
