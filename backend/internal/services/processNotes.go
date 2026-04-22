@@ -3,8 +3,6 @@ package services
 import (
 	"ProjectGo/backend/internal/entity"
 	"ProjectGo/backend/internal/repos"
-	"fmt"
-	"slices"
 )
 
 type NotesStore struct {
@@ -19,8 +17,8 @@ func NewNotesStore(conn *repos.ConnRepo) *NotesStore {
 }
 
 // Возвращаем все заметки
-func (s *NotesStore) GetAll() ([]entity.Note, error) {
-	return s.repo.GetAllNotes()
+func (s *NotesStore) GetAll(user_id int) ([]entity.Note, error) {
+	return s.repo.GetAllNotes(user_id)
 }
 
 // Добавляем заметку
@@ -30,21 +28,21 @@ func (s *NotesStore) Add(user_id int, text string) error {
 
 // Удаление заметки
 func (s *NotesStore) Del(id int) error {
-	if id < 1 || id >= s.nextID {
-		return fmt.Errorf("bad ID: %d", id)
-	}
-	s.notes = slices.Delete(s.notes, id-1, id)
-	for i := id - 1; i < len(s.notes); i++ {
-		s.notes[i].ID--
-	}
+	// if id < 1 || id >= s.nextID {
+	// 	return fmt.Errorf("bad ID: %d", id)
+	// }
+	// s.notes = slices.Delete(s.notes, id-1, id)
+	// for i := id - 1; i < len(s.notes); i++ {
+	// 	s.notes[i].ID--
+	// }
 	return nil
 }
 
 // Изменение заметки
 func (s *NotesStore) Edit(id int, text string) error {
-	if id < 1 || id >= s.nextID {
-		return fmt.Errorf("bad ID: %d", id)
-	}
-	s.notes[id-1].Text = text
+	// if id < 1 || id >= s.nextID {
+	// 	return fmt.Errorf("bad ID: %d", id)
+	// }
+	// s.notes[id-1].Text = text
 	return nil
 }

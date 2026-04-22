@@ -6,11 +6,9 @@ import (
 	"ProjectGo/backend/internal/config"
 	"ProjectGo/backend/internal/entity"
 	"context"
-	"errors"
 	"fmt"
 	"log"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -28,18 +26,23 @@ func ConnUrlRepos(cfg *config.Config) *ConnRepo {
 }
 
 // Получение всех заметок из базы данных(пока что всех пользователей)
-func (repo *ConnRepo) GetAllNotes() ([]entity.Note, error) {
-	rows, err := repo.Conn.Query(context.TODO(), "SELECT * FROM notes")
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return []entity.Note{}, fmt.Errorf("error on select rows: %d", err)
+func (repo *ConnRepo) GetAllNotes(user_id int) ([]entity.Note, error) {
+	rows, err := repo.Conn.Query(context.TODO(), "SELECT * FROM notes WHERE user_id = $1", user_id)
+	if err != nil {
+		return nil, fmt.Errorf("error on select rows: %v", err)
 	}
+	defer rows.Close()
 	var notes []entity.Note
 	for rows.Next() {
 		var note entity.Note
-		rows.Scan(&note.ID, &note.User_id, &note.Text)
+		if err := rows.Scan(&note.ID, &note.User_id, &note.Text); err != nil {
+			return nil, err
+		}
 		notes = append(notes, note)
 	}
-	defer rows.Close()
+	if notes == nil {
+		return []entity.Note{}, nil
+	}
 	return notes, nil
 }
 

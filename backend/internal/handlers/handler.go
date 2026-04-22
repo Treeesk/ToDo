@@ -18,10 +18,26 @@ func NewHandlerNotes(store *services.NotesStore) *HandlerNotes {
 }
 
 // Функция возвращающая JSON с полным списком всех заметок
-// Возвращается JSON {"id": int, "user_id": int, "text": string}
+// Получает JSON {"user_id": int}
+// Возвращает JSON {"id": int, "user_id": int, "text": string}
 func (h *HandlerNotes) GetNotes(w http.ResponseWriter, r *http.Request) {
+	type user struct {
+		User_id *int `json:"user_id"`
+	}
+	var us user
+	err := json.NewDecoder(r.Body).Decode(&us)
+	if err != nil {
+		jsonDecodeError(w, err)
+		log.Println("decode error: ", err)
+		return
+	}
+	if us.User_id == nil {
+		writeJsonError(w, http.StatusBadRequest, "unknown user")
+		log.Println("error: the user_id field is missing")
+		return
+	}
 	var buf bytes.Buffer
-	notes, err := h.store.GetAll()
+	notes, err := h.store.GetAll(*(us.User_id))
 	if err != nil {
 		ErrorDB(w, err)
 		log.Println("database error: ", err)
