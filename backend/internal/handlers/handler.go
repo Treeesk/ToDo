@@ -18,7 +18,7 @@ func NewHandlerNotes(store *services.NotesStore) *HandlerNotes {
 }
 
 // Функция возвращающая JSON с полным списком всех заметок
-// Возвращается JSON {"id": id, "user_id": user_id, "text": note}
+// Возвращается JSON {"id": int, "user_id": int, "text": string}
 func (h *HandlerNotes) GetNotes(w http.ResponseWriter, r *http.Request) {
 	var buf bytes.Buffer
 	notes, err := h.store.GetAll()
@@ -39,10 +39,11 @@ func (h *HandlerNotes) GetNotes(w http.ResponseWriter, r *http.Request) {
 }
 
 // Функция добавления заметки
-// Ожидается JSON вида {"text": string}
+// Ожидается JSON вида {"user_id": int, "text": string}
 func (h *HandlerNotes) AddNote(w http.ResponseWriter, r *http.Request) {
 	type addn struct {
-		Text *string `json:"text"`
+		User_id *int    `json:"user_id"`
+		Text    *string `json:"text"`
 	}
 	var note addn
 	err := json.NewDecoder(r.Body).Decode(&note)
@@ -56,13 +57,23 @@ func (h *HandlerNotes) AddNote(w http.ResponseWriter, r *http.Request) {
 		log.Println("error: the text field is missing")
 		return
 	}
+	if note.User_id == nil {
+		writeJsonError(w, http.StatusBadRequest, "unknown user")
+		log.Println("error: the user_id field is missing")
+		return
+	}
 	if strings.TrimSpace(*(note.Text)) == "" {
-		writeJsonError(w, http.StatusBadRequest, "text is required")
+		writeJsonError(w, http.StatusBadRequest, "text of note is required")
 		log.Println("error: text is required")
 		return
 	}
+	err = h.store.Add(*(note.User_id), *(note.Text))
+	if err != nil {
+		ErrorDB(w, err)
+		log.Println("database error: ", err)
+		return
+	}
 	w.WriteHeader(http.StatusCreated)
-	h.store.Add(*(note.Text))
 }
 
 // Функция для удаления заметок

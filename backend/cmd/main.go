@@ -14,7 +14,7 @@ func main() {
 
 	conn := repos.ConnUrlRepos(cfg)
 	defer conn.Conn.Close()
-	store := services.NewNotesStore(conn) // инициализация заметок
+	store := services.NewNotesStore(conn)
 	transport.Setuprouter(store)
 	log.Fatal(http.ListenAndServe(cfg.BaseURL, nil))
 }

@@ -24,10 +24,8 @@ func (s *NotesStore) GetAll() ([]entity.Note, error) {
 }
 
 // Добавляем заметку
-func (s *NotesStore) Add(text string) {
-	note := entity.Note{ID: s.nextID, Text: text}
-	s.nextID++
-	s.notes = append(s.notes, note)
+func (s *NotesStore) Add(user_id int, text string) error {
+	return s.repo.AddNotebd(user_id, text)
 }
 
 // Удаление заметки

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"io"
 	"net/http"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type JsonError struct {
@@ -36,6 +38,16 @@ func jsonDecodeError(w http.ResponseWriter, err error) {
 
 // Функция отправки ошибки БД в Response в формате JSON
 func ErrorDB(w http.ResponseWriter, err error) {
-	writeJsonError(w, 500, "ERROR DBDBDBDBDBD")
-	// добавить работу с контекстом
+	var pgerr *pgconn.PgError
+	switch {
+	case errors.As(err, &pgerr):
+		switch pgerr.Code {
+		case "23503":
+			writeJsonError(w, http.StatusNotFound, "Error: foreign_key_violation")
+		case "22P02":
+			writeJsonError(w, http.StatusBadRequest, "Error: invalid data type")
+		}
+	default:
+		writeJsonError(w, http.StatusInternalServerError, "DB error")
+	}
 }

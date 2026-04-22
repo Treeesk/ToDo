@@ -42,3 +42,12 @@ func (repo *ConnRepo) GetAllNotes() ([]entity.Note, error) {
 	defer rows.Close()
 	return notes, nil
 }
+
+// Добавление заметки в бд
+func (repo *ConnRepo) AddNotebd(user_id int, text string) error {
+	_, err := repo.Conn.Exec(context.TODO(), "INSERT INTO notes (user_id, note) VALUES($1, $2)", user_id, text)
+	if err != nil {
+		return err
+	}
+	return nil
+}
