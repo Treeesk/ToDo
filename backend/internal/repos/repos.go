@@ -3,6 +3,7 @@ package repos
 // Для взаимодействия с Базой данных
 
 import (
+	"ProjectGo/backend/customerrors"
 	"ProjectGo/backend/internal/config"
 	"ProjectGo/backend/internal/entity"
 	"context"
@@ -47,10 +48,22 @@ func (repo *ConnRepo) GetAllNotes(user_id int) ([]entity.Note, error) {
 }
 
 // Добавление заметки в бд
-func (repo *ConnRepo) AddNotebd(user_id int, text string) error {
+func (repo *ConnRepo) AddNotedb(user_id int, text string) error {
 	_, err := repo.Conn.Exec(context.TODO(), "INSERT INTO notes (user_id, note) VALUES($1, $2)", user_id, text)
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+// Удаление заметки из бд
+func (repo *ConnRepo) DeleteNotedb(user_id, id int) error {
+	tag, err := repo.Conn.Exec(context.TODO(), "DELETE FROM notes WHERE user_id = $1 AND id = $2", user_id, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return &customerrors.ErrorNotFound{What: "note not found", Id: id}
 	}
 	return nil
 }

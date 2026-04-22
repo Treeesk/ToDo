@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"ProjectGo/backend/customerrors"
 	"encoding/json"
 	"errors"
 	"io"
@@ -39,6 +40,7 @@ func jsonDecodeError(w http.ResponseWriter, err error) {
 // Функция отправки ошибки БД в Response в формате JSON
 func ErrorDB(w http.ResponseWriter, err error) {
 	var pgerr *pgconn.PgError
+	var notfounderr *customerrors.ErrorNotFound
 	switch {
 	case errors.As(err, &pgerr):
 		switch pgerr.Code {
@@ -47,6 +49,8 @@ func ErrorDB(w http.ResponseWriter, err error) {
 		case "22P02":
 			writeJsonError(w, http.StatusBadRequest, "Error: invalid data type")
 		}
+	case errors.As(err, &notfounderr):
+		writeJsonError(w, http.StatusNotFound, "Error: not found this note")
 	default:
 		writeJsonError(w, http.StatusInternalServerError, "DB error")
 	}

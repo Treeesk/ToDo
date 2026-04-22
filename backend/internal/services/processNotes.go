@@ -3,6 +3,7 @@ package services
 import (
 	"ProjectGo/backend/internal/entity"
 	"ProjectGo/backend/internal/repos"
+	"fmt"
 )
 
 type NotesStore struct {
@@ -23,19 +24,18 @@ func (s *NotesStore) GetAll(user_id int) ([]entity.Note, error) {
 
 // Добавляем заметку
 func (s *NotesStore) Add(user_id int, text string) error {
-	return s.repo.AddNotebd(user_id, text)
+	return s.repo.AddNotedb(user_id, text)
 }
 
 // Удаление заметки
-func (s *NotesStore) Del(id int) error {
-	// if id < 1 || id >= s.nextID {
-	// 	return fmt.Errorf("bad ID: %d", id)
-	// }
-	// s.notes = slices.Delete(s.notes, id-1, id)
-	// for i := id - 1; i < len(s.notes); i++ {
-	// 	s.notes[i].ID--
-	// }
-	return nil
+func (s *NotesStore) Del(user_id, id int) error {
+	if id < 0 {
+		return fmt.Errorf("bad ID: %d", id)
+	}
+	if user_id < 0 {
+		return fmt.Errorf("bad ID: %d", user_id)
+	}
+	return s.repo.DeleteNotedb(user_id, id)
 }
 
 // Изменение заметки

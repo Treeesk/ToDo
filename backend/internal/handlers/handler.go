@@ -93,26 +93,32 @@ func (h *HandlerNotes) AddNote(w http.ResponseWriter, r *http.Request) {
 }
 
 // Функция для удаления заметок
-// Ожидается JSON вида {"id": int}
+// Ожидается JSON вида {"user_id": int, "id": int}
 func (h *HandlerNotes) DelNote(w http.ResponseWriter, r *http.Request) {
 	type deln struct {
-		ID *int `json:"id"`
+		User_id *int `json:"user_id"`
+		ID      *int `json:"id"`
 	}
-	var id deln
-	err := json.NewDecoder(r.Body).Decode(&id)
+	var note deln
+	err := json.NewDecoder(r.Body).Decode(&note)
 	if err != nil {
 		jsonDecodeError(w, err)
 		log.Println("decode error: ", err)
 		return
 	}
-	if id.ID == nil {
+	if note.ID == nil {
 		writeJsonError(w, http.StatusBadRequest, "the id field is missing")
 		log.Println("error: the id field is missing")
 		return
 	}
-	err = h.store.Del(*(id.ID))
+	if note.User_id == nil {
+		writeJsonError(w, http.StatusBadRequest, "the user_id field is missing")
+		log.Println("error: the user_id field is missing")
+		return
+	}
+	err = h.store.Del(*(note.User_id), *(note.ID))
 	if err != nil {
-		writeJsonError(w, 400, err.Error())
+		ErrorDB(w, err)
 		log.Println(err)
 		return
 	}
