@@ -1,6 +1,7 @@
 package services
 
 import (
+	"ProjectGo/backend/internal/customerrors"
 	"ProjectGo/backend/internal/entity"
 	"ProjectGo/backend/internal/repos"
 	"fmt"
@@ -41,10 +42,10 @@ func (s *NotesStore) Del(user_id, id int) error {
 // Изменение заметки
 func (s *NotesStore) Edit(user_id, id int, text string) error {
 	if id < 0 {
-		return fmt.Errorf("bad ID: %d", id)
+		return &customerrors.ErrorNotFound{What: "note not found", Id: id, User_id: user_id}
 	}
 	if user_id < 0 {
-		return fmt.Errorf("bad ID: %d", user_id)
+		return &customerrors.ErrorNotFound{What: "note not found", Id: id, User_id: user_id}
 	}
 	return s.repo.EditNotedb(user_id, id, text)
 }

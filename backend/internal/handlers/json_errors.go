@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"ProjectGo/backend/customerrors"
+	"ProjectGo/backend/internal/customerrors"
 	"encoding/json"
 	"errors"
 	"io"
