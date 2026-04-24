@@ -126,11 +126,12 @@ func (h *HandlerNotes) DelNote(w http.ResponseWriter, r *http.Request) {
 }
 
 // Функция редактирования заметок
-// Ожидается JSON вида {"id": int, "text": string}
+// Ожидается JSON вида {"user_id:: int, "id": int, "text": string}
 func (h *HandlerNotes) EditNote(w http.ResponseWriter, r *http.Request) {
 	type editn struct {
-		ID   *int    `json:"id"`
-		Text *string `json:"text"`
+		ID      *int    `json:"id"`
+		User_id *int    `json:"user_id"`
+		Text    *string `json:"text"`
 	}
 	var note editn
 	err := json.NewDecoder(r.Body).Decode(&note)
@@ -149,14 +150,19 @@ func (h *HandlerNotes) EditNote(w http.ResponseWriter, r *http.Request) {
 		log.Println("error: the text field is missing")
 		return
 	}
+	if note.User_id == nil {
+		writeJsonError(w, http.StatusBadRequest, "the user_id field is missing")
+		log.Println("error: the user_id field is missing")
+		return
+	}
 	if strings.TrimSpace(*(note.Text)) == "" {
 		writeJsonError(w, http.StatusBadRequest, "text is required")
 		log.Println("error: text is required")
 		return
 	}
-	err = h.store.Edit(*(note.ID), *(note.Text))
+	err = h.store.Edit(*(note.User_id), *(note.ID), *(note.Text))
 	if err != nil {
-		writeJsonError(w, 400, err.Error())
+		ErrorDB(w, err)
 		log.Println(err)
 		return
 	}

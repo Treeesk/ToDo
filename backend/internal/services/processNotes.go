@@ -39,10 +39,12 @@ func (s *NotesStore) Del(user_id, id int) error {
 }
 
 // Изменение заметки
-func (s *NotesStore) Edit(id int, text string) error {
-	// if id < 1 || id >= s.nextID {
-	// 	return fmt.Errorf("bad ID: %d", id)
-	// }
-	// s.notes[id-1].Text = text
-	return nil
+func (s *NotesStore) Edit(user_id, id int, text string) error {
+	if id < 0 {
+		return fmt.Errorf("bad ID: %d", id)
+	}
+	if user_id < 0 {
+		return fmt.Errorf("bad ID: %d", user_id)
+	}
+	return s.repo.EditNotedb(user_id, id, text)
 }

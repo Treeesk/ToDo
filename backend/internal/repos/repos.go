@@ -63,7 +63,19 @@ func (repo *ConnRepo) DeleteNotedb(user_id, id int) error {
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return &customerrors.ErrorNotFound{What: "note not found", Id: id}
+		return &customerrors.ErrorNotFound{What: "note not found", Id: id, User_id: user_id}
+	}
+	return nil
+}
+
+// Редактирование заметки в бд
+func (repo *ConnRepo) EditNotedb(user_id, id int, text string) error {
+	tag, err := repo.Conn.Exec(context.TODO(), "UPDATE notes SET note = $1 WHERE user_id = $2 AND id = $3", text, user_id, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return &customerrors.ErrorNotFound{What: "note not found", Id: id, User_id: user_id}
 	}
 	return nil
 }
