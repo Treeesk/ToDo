@@ -27,8 +27,8 @@ func ConnUrlRepos(cfg *config.Config) *ConnRepo {
 }
 
 // Получение всех заметок из базы данных(пока что всех пользователей)
-func (repo *ConnRepo) GetAllNotes(user_id int) ([]entity.Note, error) {
-	rows, err := repo.Conn.Query(context.TODO(), "SELECT * FROM notes WHERE user_id = $1", user_id)
+func (repo *ConnRepo) GetAllNotes(ctx context.Context, user_id int) ([]entity.Note, error) {
+	rows, err := repo.Conn.Query(ctx, "SELECT * FROM notes WHERE user_id = $1", user_id)
 	if err != nil {
 		return nil, fmt.Errorf("error on select rows: %v", err)
 	}
@@ -48,8 +48,8 @@ func (repo *ConnRepo) GetAllNotes(user_id int) ([]entity.Note, error) {
 }
 
 // Добавление заметки в бд
-func (repo *ConnRepo) AddNotedb(user_id int, text string) error {
-	_, err := repo.Conn.Exec(context.TODO(), "INSERT INTO notes (user_id, note) VALUES($1, $2)", user_id, text)
+func (repo *ConnRepo) AddNotedb(ctx context.Context, user_id int, text string) error {
+	_, err := repo.Conn.Exec(ctx, "INSERT INTO notes (user_id, note) VALUES($1, $2)", user_id, text)
 	if err != nil {
 		return err
 	}
@@ -57,8 +57,8 @@ func (repo *ConnRepo) AddNotedb(user_id int, text string) error {
 }
 
 // Удаление заметки из бд
-func (repo *ConnRepo) DeleteNotedb(user_id, id int) error {
-	tag, err := repo.Conn.Exec(context.TODO(), "DELETE FROM notes WHERE user_id = $1 AND id = $2", user_id, id)
+func (repo *ConnRepo) DeleteNotedb(ctx context.Context, user_id, id int) error {
+	tag, err := repo.Conn.Exec(ctx, "DELETE FROM notes WHERE user_id = $1 AND id = $2", user_id, id)
 	if err != nil {
 		return err
 	}
@@ -69,8 +69,8 @@ func (repo *ConnRepo) DeleteNotedb(user_id, id int) error {
 }
 
 // Редактирование заметки в бд
-func (repo *ConnRepo) EditNotedb(user_id, id int, text string) error {
-	tag, err := repo.Conn.Exec(context.TODO(), "UPDATE notes SET note = $1 WHERE user_id = $2 AND id = $3", text, user_id, id)
+func (repo *ConnRepo) EditNotedb(ctx context.Context, user_id, id int, text string) error {
+	tag, err := repo.Conn.Exec(ctx, "UPDATE notes SET note = $1 WHERE user_id = $2 AND id = $3", text, user_id, id)
 	if err != nil {
 		return err
 	}

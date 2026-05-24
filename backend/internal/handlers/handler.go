@@ -3,10 +3,13 @@ package handlers
 import (
 	"ProjectGo/backend/internal/services"
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type HandlerNotes struct {
@@ -24,6 +27,10 @@ func (h *HandlerNotes) GetNotes(w http.ResponseWriter, r *http.Request) {
 	type user struct {
 		User_id *int `json:"user_id"`
 	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second) // работаем с контекстом(пользователь может закрыть соединение или мы будем долго выполнять работу)
+	defer cancel()
+
 	var us user
 	err := json.NewDecoder(r.Body).Decode(&us)
 	if err != nil {
@@ -37,7 +44,7 @@ func (h *HandlerNotes) GetNotes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var buf bytes.Buffer
-	notes, err := h.store.GetAll(*(us.User_id))
+	notes, err := h.store.GetAll(ctx, *(us.User_id))
 	if err != nil {
 		ErrorDB(w, err)
 		log.Println("database error: ", err)
@@ -45,6 +52,14 @@ func (h *HandlerNotes) GetNotes(w http.ResponseWriter, r *http.Request) {
 	}
 	err = json.NewEncoder(&buf).Encode(notes)
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			writeJsonError(w, http.StatusGatewayTimeout, "request timeout")
+			log.Println(err)
+		}
+
 		writeJsonError(w, http.StatusInternalServerError, "Error: processing in JSON format")
 		log.Println("error: ", err)
 		return
@@ -63,6 +78,10 @@ func (h *HandlerNotes) AddNote(w http.ResponseWriter, r *http.Request) {
 	}
 	var note addn
 	err := json.NewDecoder(r.Body).Decode(&note)
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second) // работаем с контекстом(пользователь может закрыть соединение или мы будем долго выполнять работу)
+	defer cancel()
+
 	if err != nil {
 		jsonDecodeError(w, err)
 		log.Println("decode error: ", err)
@@ -83,8 +102,16 @@ func (h *HandlerNotes) AddNote(w http.ResponseWriter, r *http.Request) {
 		log.Println("error: text is required")
 		return
 	}
-	err = h.store.Add(*(note.User_id), *(note.Text))
+	err = h.store.Add(ctx, *(note.User_id), *(note.Text))
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			writeJsonError(w, http.StatusGatewayTimeout, "request timeout")
+			log.Println(err)
+		}
+
 		ErrorDB(w, err)
 		log.Println("database error: ", err)
 		return
@@ -101,6 +128,10 @@ func (h *HandlerNotes) DelNote(w http.ResponseWriter, r *http.Request) {
 	}
 	var note deln
 	err := json.NewDecoder(r.Body).Decode(&note)
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second) // работаем с контекстом(пользователь может закрыть соединение или мы будем долго выполнять работу)
+	defer cancel()
+
 	if err != nil {
 		jsonDecodeError(w, err)
 		log.Println("decode error: ", err)
@@ -116,8 +147,16 @@ func (h *HandlerNotes) DelNote(w http.ResponseWriter, r *http.Request) {
 		log.Println("error: the user_id field is missing")
 		return
 	}
-	err = h.store.Del(*(note.User_id), *(note.ID))
+	err = h.store.Del(ctx, *(note.User_id), *(note.ID))
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			writeJsonError(w, http.StatusGatewayTimeout, "request timeout")
+			log.Println(err)
+		}
+
 		ErrorDB(w, err)
 		log.Println(err)
 		return
@@ -135,6 +174,10 @@ func (h *HandlerNotes) EditNote(w http.ResponseWriter, r *http.Request) {
 	}
 	var note editn
 	err := json.NewDecoder(r.Body).Decode(&note)
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second) // работаем с контекстом(пользователь может закрыть соединение или мы будем долго выполнять работу)
+	defer cancel()
+
 	if err != nil {
 		jsonDecodeError(w, err)
 		log.Println("decode error: ", err)
@@ -160,8 +203,16 @@ func (h *HandlerNotes) EditNote(w http.ResponseWriter, r *http.Request) {
 		log.Println("error: text is required")
 		return
 	}
-	err = h.store.Edit(*(note.User_id), *(note.ID), *(note.Text))
+	err = h.store.Edit(ctx, *(note.User_id), *(note.ID), *(note.Text))
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			writeJsonError(w, http.StatusGatewayTimeout, "request timeout")
+			log.Println(err)
+		}
+
 		ErrorDB(w, err)
 		log.Println(err)
 		return
