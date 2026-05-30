@@ -3,22 +3,22 @@ package repos
 import (
 	"ProjectGo/backend/internal/config"
 	"context"
+	"os"
 	"testing"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
+func TestMain(m *testing.M) {
+	_ = godotenv.Load("../../.env")
+	os.Exit(m.Run())
+}
 func TestCancel(t *testing.T) {
 	// создание контекста, передача его и закрытие для проверки, что контекст прекращает обращение к бд
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
-	cfg := &config.Config{
-		BaseURL:    "localhost:8080",
-		DBHost:     "localhost",
-		DBPort:     "5432",
-		DBUser:     "myuser",
-		DBPassword: "IlikeCoding666",
-		DBName:     "noteapp",
-	}
+	cfg := config.Load()
 	conn := ConnUrlRepos(cfg)
 	defer conn.Conn.Close()
 

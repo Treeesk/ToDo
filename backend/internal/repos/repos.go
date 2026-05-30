@@ -26,7 +26,7 @@ func ConnUrlRepos(cfg *config.Config) *ConnRepo {
 	return &ConnRepo{Conn: pool}
 }
 
-// Получение всех заметок из базы данных(пока что всех пользователей)
+// Получение всех заметок из базы данных
 func (repo *ConnRepo) GetAllNotes(ctx context.Context, user_id int) ([]entity.Note, error) {
 	rows, err := repo.Conn.Query(ctx, "SELECT * FROM notes WHERE user_id = $1", user_id)
 	if err != nil {
