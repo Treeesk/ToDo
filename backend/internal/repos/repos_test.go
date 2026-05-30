@@ -19,7 +19,7 @@ func TestCancel(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
 	cfg := config.Load()
-	conn := ConnUrlRepos(cfg)
+	conn := ConnUrlRepos(context.Background(), cfg)
 	defer conn.Conn.Close()
 
 	_, err := conn.Conn.Query(ctx, "SELECT pg_sleep(1)")
