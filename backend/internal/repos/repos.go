@@ -30,7 +30,7 @@ func ConnUrlRepos(cfg *config.Config) *ConnRepo {
 func (repo *ConnRepo) GetAllNotes(ctx context.Context, user_id int) ([]entity.Note, error) {
 	rows, err := repo.Conn.Query(ctx, "SELECT * FROM notes WHERE user_id = $1", user_id)
 	if err != nil {
-		return nil, fmt.Errorf("error on select rows: %v", err)
+		return nil, fmt.Errorf("error: %v", err)
 	}
 	defer rows.Close()
 	var notes []entity.Note
