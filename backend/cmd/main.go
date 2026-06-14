@@ -16,9 +16,11 @@ func main() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // контекст на подключение к Бд(защита от зависания)
 	defer cancel()
+
 	conn := repos.ConnUrlRepos(ctx, cfg)
 	defer conn.Conn.Close()
 	store := services.NewNotesStore(conn)
-	transport.Setuprouter(store)
+	authService := services.NewAuthService(cfg.JWTSecret)
+	transport.Setuprouter(store, authService)
 	log.Fatal(http.ListenAndServe(cfg.BaseURL, nil))
 }

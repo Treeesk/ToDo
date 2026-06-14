@@ -19,7 +19,7 @@ type ConnRepo struct {
 
 // Подключение к базе данных
 func ConnUrlRepos(ctx context.Context, cfg *config.Config) *ConnRepo {
-	pool, err := pgxpool.New(context.TODO(), fmt.Sprintf("postgres://%s:%s@%s:%s/%s", cfg.DBUser, cfg.DBPassword, cfg.DBHost, cfg.DBPort, cfg.DBName))
+	pool, err := pgxpool.New(ctx, fmt.Sprintf("postgres://%s:%s@%s:%s/%s", cfg.DBUser, cfg.DBPassword, cfg.DBHost, cfg.DBPort, cfg.DBName))
 	if err != nil {
 		log.Fatalf("Unable to create connection pool: %v\n", err)
 	}

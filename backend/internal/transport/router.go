@@ -6,11 +6,12 @@ import (
 	"net/http"
 )
 
-func Setuprouter(store *services.NotesStore) {
-	handler := handlers.NewHandlerNotes(store) // инициализация хендлер класса для работы с хендлер функциями заметок
+func Setuprouter(store *services.NotesStore, authService *services.AuthService) {
+	handler := handlers.NewHandlerNotes(store, authService) // инициализация хендлер класса для работы с хендлер функциями заметок
 
 	http.HandleFunc("/api/", handler.GetNotes)
 	http.HandleFunc("/api/add/", handler.AddNote)
 	http.HandleFunc("/api/del/", handler.DelNote)
 	http.HandleFunc("/api/edit/", handler.EditNote)
+	// http.HandleFunc("/api/register/", handler.Register) вызов функции из auth.go
 }

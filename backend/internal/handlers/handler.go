@@ -13,11 +13,15 @@ import (
 )
 
 type HandlerNotes struct {
-	store *services.NotesStore
+	store       *services.NotesStore
+	authService *services.AuthService
 }
 
-func NewHandlerNotes(store *services.NotesStore) *HandlerNotes {
-	return &HandlerNotes{store: store}
+func NewHandlerNotes(store *services.NotesStore, authService *services.AuthService) *HandlerNotes {
+	return &HandlerNotes{
+		store:       store,
+		authService: authService,
+	}
 }
 
 // Функция возвращающая JSON с полным списком всех заметок
