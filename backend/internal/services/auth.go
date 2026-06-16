@@ -3,6 +3,7 @@ package services
 // Создание и проверка JWT токенов. Регистрация и логин пользователей.
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -35,5 +36,17 @@ func (auth *AuthService) CreateToken(user_id int) (string, error) {
 
 // Функция проверки JWT
 func (auth *AuthService) VerifyToken(tokenString string) error {
-
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method")
+		}
+		return auth.jwtSecret, nil
+	})
+	if err != nil {
+		return err
+	}
+	if !token.Valid {
+		return fmt.Errorf("invalid token")
+	}
+	return nil
 }
