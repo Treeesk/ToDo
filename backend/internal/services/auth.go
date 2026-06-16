@@ -27,7 +27,7 @@ func (auth *AuthService) CreateToken(user_id int) (string, error) {
 			"iat": jwt.NewNumericDate(time.Now()),
 			"exp": jwt.NewNumericDate(time.Now().Add(time.Minute * 15)),
 		})
-	tokenString, err := token.SignedString(auth.jwtSecret)
+	tokenString, err := token.SignedString([]byte(auth.jwtSecret))
 	if err != nil {
 		return "", err
 	}
@@ -38,9 +38,9 @@ func (auth *AuthService) CreateToken(user_id int) (string, error) {
 func (auth *AuthService) VerifyToken(tokenString string) error {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method")
+			return nil, fmt.Errorf("unexpected signing method") // явная документация ожидаемого алгоритма
 		}
-		return auth.jwtSecret, nil
+		return []byte(auth.jwtSecret), nil
 	})
 	if err != nil {
 		return err

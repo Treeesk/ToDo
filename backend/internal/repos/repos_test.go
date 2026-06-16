@@ -11,7 +11,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	_ = godotenv.Load("../../.env")
+	_ = godotenv.Load("../../../.env")
 	os.Exit(m.Run())
 }
 func TestCancel(t *testing.T) {
