@@ -27,12 +27,14 @@ func TestCreateVerifyValid(t *testing.T) {
 func TestVerifyInvalid(t *testing.T) {
 	authService := NewAuthService("secret")
 	// Проверка на верификацию токена с неверным секретом
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256,
-		jwt.MapClaims{
-			"sub": 1,
-			"iat": jwt.NewNumericDate(time.Now()),
-			"exp": jwt.NewNumericDate(time.Now().Add(time.Minute * 15)),
-		})
+	claims := CustomClaims{
+		1,
+		jwt.RegisteredClaims{
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 15)),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString([]byte("apappa"))
 	if err != nil {
 		t.Fatalf("Error while creating the token: %v", err)
@@ -41,13 +43,9 @@ func TestVerifyInvalid(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected error")
 	}
+
 	// Проверка на неверно указанный метод шифрования
-	token = jwt.NewWithClaims(jwt.SigningMethodHS256,
-		jwt.MapClaims{
-			"sub": 1,
-			"iat": jwt.NewNumericDate(time.Now()),
-			"exp": jwt.NewNumericDate(time.Now().Add(time.Minute * 15)),
-		})
+	token = jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	token.Header["alg"] = "RSA256"
 	tokenString, err = token.SignedString([]byte("secret"))
 	if err != nil {
@@ -56,5 +54,23 @@ func TestVerifyInvalid(t *testing.T) {
 	err = authService.VerifyToken(tokenString)
 	if err == nil {
 		t.Fatalf("signing method error expected")
+	}
+
+	// Проверка на ошибку верификации токена по истечению времени его существования
+	claimsBadExp := CustomClaims{
+		1,
+		jwt.RegisteredClaims{
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(-time.Minute)),
+		},
+	}
+	token = jwt.NewWithClaims(jwt.SigningMethodHS256, claimsBadExp)
+	tokenString, err = token.SignedString([]byte("secret"))
+	if err != nil {
+		t.Fatalf("Error while creating the token: %v", err)
+	}
+	err = authService.VerifyToken(tokenString)
+	if err == nil {
+		t.Fatalf("expected error: out of time")
 	}
 }
