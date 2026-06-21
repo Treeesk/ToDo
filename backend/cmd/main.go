@@ -20,7 +20,7 @@ func main() {
 	conn := repos.ConnUrlRepos(ctx, cfg)
 	defer conn.Conn.Close()
 	store := services.NewNotesStore(conn)
-	authService := services.NewAuthService(cfg.JWTSecret)
+	authService := services.NewAuthService(conn, cfg.JWTSecret)
 	transport.Setuprouter(store, authService)
 	log.Fatal(http.ListenAndServe(cfg.BaseURL, nil))
 }

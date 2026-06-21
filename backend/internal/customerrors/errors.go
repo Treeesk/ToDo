@@ -8,6 +8,15 @@ type ErrorNotFound struct {
 	User_id int
 }
 
+type UserError struct {
+	What  string
+	Login string
+}
+
 func (e *ErrorNotFound) Error() string {
 	return fmt.Sprintf("%s, id: %d, user_id: %d", e.What, e.Id, e.User_id)
+}
+
+func (e *UserError) Error() string {
+	return fmt.Sprintf("error: %s, login: %s", e.What, e.Login)
 }

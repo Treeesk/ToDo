@@ -3,6 +3,8 @@ package services
 // Создание и проверка JWT токенов. Регистрация и логин пользователей.
 
 import (
+	"ProjectGo/backend/internal/repos"
+	"context"
 	"fmt"
 	"time"
 
@@ -11,11 +13,13 @@ import (
 
 type AuthService struct {
 	jwtSecret string
+	repo      *repos.ConnRepo
 }
 
-func NewAuthService(jwtSecret string) *AuthService {
+func NewAuthService(conn *repos.ConnRepo, jwtSecret string) *AuthService {
 	return &AuthService{
 		jwtSecret: jwtSecret,
+		repo:      conn,
 	}
 }
 
@@ -57,4 +61,17 @@ func (auth *AuthService) VerifyToken(tokenString string) error {
 		return fmt.Errorf("invalid token")
 	}
 	return nil
+}
+
+// Функция регистрации пользователя
+func (auth *AuthService) Register(login, password string, ctx context.Context) (string, error) {
+	id, err := auth.repo.Register(login, password, ctx)
+	if err != nil {
+		return "", err
+	}
+	token, err := auth.CreateToken(id)
+	if err != nil {
+		return "", err
+	}
+	return token, nil
 }
