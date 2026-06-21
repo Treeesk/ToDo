@@ -1,19 +1,31 @@
 package services
 
+// Тестирование:
+// верификации существующего и несуществующего токена, неверно указанный алгоритм шифрования, измененные поля токена
+
 import (
+	"ProjectGo/backend/internal/config"
+	"ProjectGo/backend/internal/repos"
+	"context"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/joho/godotenv"
 )
 
-// Тестирование:
-// верификации существующего и несуществующего токена, неверно указанный алгоритм шифрования, измененные поля токена
+func TestMain(m *testing.M) {
+	_ = godotenv.Load("../../../.env")
+	os.Exit(m.Run())
+}
 
 // Проверка создания и верификации токена
 func TestCreateVerifyValid(t *testing.T) {
-	authService := NewAuthService("secret")
-	token, err := authService.CreateToken(1)
+	cfg := config.Load()
+	conn := repos.ConnUrlRepos(context.Background(), cfg)
+	authService := NewAuthService(conn, cfg.JWTSecret)
+	token, err := authService.CreateToken(1, time.Now().Add(time.Minute*5))
 	if err != nil {
 		t.Fatalf("Unknown error while creating the token: %v", err)
 	}
@@ -25,7 +37,9 @@ func TestCreateVerifyValid(t *testing.T) {
 
 // Проверка ошибки верификации невалидного токена
 func TestVerifyInvalid(t *testing.T) {
-	authService := NewAuthService("secret")
+	cfg := config.Load()
+	conn := repos.ConnUrlRepos(context.Background(), cfg)
+	authService := NewAuthService(conn, cfg.JWTSecret)
 	// Проверка на верификацию токена с неверным секретом
 	claims := CustomClaims{
 		1,

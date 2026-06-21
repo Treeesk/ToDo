@@ -3,6 +3,7 @@ package services
 // Создание и проверка JWT токенов. Регистрация и логин пользователей.
 
 import (
+	"ProjectGo/backend/internal/customerrors"
 	"ProjectGo/backend/internal/repos"
 	"context"
 	"fmt"
@@ -29,18 +30,18 @@ type CustomClaims struct {
 }
 
 // Функция по созданию JWT
-func (auth *AuthService) CreateToken(user_id int) (string, error) {
+func (auth *AuthService) CreateToken(user_id int, exp time.Time) (string, error) {
 	claims := CustomClaims{
 		user_id,
 		jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 15)),
+			ExpiresAt: jwt.NewNumericDate(exp),
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString([]byte(auth.jwtSecret))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("%w: %v", customerrors.ErrTokenCreate, err)
 	}
 	return tokenString, nil
 }
@@ -64,12 +65,12 @@ func (auth *AuthService) VerifyToken(tokenString string) error {
 }
 
 // Функция регистрации пользователя
-func (auth *AuthService) Register(login, password string, ctx context.Context) (string, error) {
+func (auth *AuthService) Register(login, password string, ctx context.Context, exp time.Time) (string, error) {
 	id, err := auth.repo.Register(login, password, ctx)
 	if err != nil {
 		return "", err
 	}
-	token, err := auth.CreateToken(id)
+	token, err := auth.CreateToken(id, exp)
 	if err != nil {
 		return "", err
 	}

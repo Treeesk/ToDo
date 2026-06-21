@@ -48,6 +48,12 @@ func ErrorDB(w http.ResponseWriter, err error) {
 			writeJsonError(w, http.StatusNotFound, "Error: foreign_key_violation")
 		case "22P02":
 			writeJsonError(w, http.StatusBadRequest, "Error: invalid data type")
+		case "23505":
+			writeJsonError(w, http.StatusBadRequest, "Error: A user with that login already exists.")
+		case "22001":
+			writeJsonError(w, http.StatusBadRequest, "Error: data field missing")
+		case "08006":
+			writeJsonError(w, http.StatusServiceUnavailable, "Error: connection DB failure")
 		}
 	case errors.As(err, &notfounderr):
 		writeJsonError(w, http.StatusNotFound, "Error: not found this note")

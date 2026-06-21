@@ -62,6 +62,7 @@ func (h *HandlerNotes) GetNotes(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, context.DeadlineExceeded) {
 			writeJsonError(w, http.StatusGatewayTimeout, "request timeout")
 			log.Println(err)
+			return
 		}
 
 		writeJsonError(w, http.StatusInternalServerError, "Error: processing in JSON format")
@@ -114,10 +115,11 @@ func (h *HandlerNotes) AddNote(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, context.DeadlineExceeded) {
 			writeJsonError(w, http.StatusGatewayTimeout, "request timeout")
 			log.Println(err)
+			return
 		}
 
 		ErrorDB(w, err)
-		log.Println("database error: ", err)
+		log.Println("database error:", err)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -159,6 +161,7 @@ func (h *HandlerNotes) DelNote(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, context.DeadlineExceeded) {
 			writeJsonError(w, http.StatusGatewayTimeout, "request timeout")
 			log.Println(err)
+			return
 		}
 
 		ErrorDB(w, err)
@@ -215,6 +218,7 @@ func (h *HandlerNotes) EditNote(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, context.DeadlineExceeded) {
 			writeJsonError(w, http.StatusGatewayTimeout, "request timeout")
 			log.Println(err)
+			return
 		}
 
 		ErrorDB(w, err)

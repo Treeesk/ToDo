@@ -1,6 +1,15 @@
 package customerrors
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
+
+// JWT обертки ошибок
+var (
+	ErrTokenCreate = errors.New("token creation failed")
+	ErrTokenParse  = errors.New("token parse failed")
+)
 
 type ErrorNotFound struct {
 	What    string
