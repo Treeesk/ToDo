@@ -13,12 +13,13 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+type user struct {
+	Login    string `json:"login"`
+	Password string `json:"password"`
+}
+
 // Хэндлер для регистрации пользователя
 func (h *HandlerNotes) Register(w http.ResponseWriter, r *http.Request) {
-	type user struct {
-		Login    string `json:"login"`
-		Password string `json:"password"`
-	}
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second) // работаем с контекстом(пользователь может закрыть соединение или мы будем долго выполнять работу)
 	defer cancel()
 	var us user
@@ -49,7 +50,52 @@ func (h *HandlerNotes) Register(w http.ResponseWriter, r *http.Request) {
 			log.Println(err)
 			return
 		}
-		ErrorDB(w, err)
+		HandleError(w, err) // бизнес и бд ошибки
+		log.Println("database error:", err)
+		return
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     "token",
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		Expires:  expires,
+	})
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+}
+
+// Хэндлер для логина пользователя
+func (h *HandlerNotes) Login(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second) // работаем с контекстом(пользователь может закрыть соединение или мы будем долго выполнять работу)
+	defer cancel()
+	var us user
+	err := json.NewDecoder(r.Body).Decode(&us)
+	if err != nil {
+		jsonDecodeError(w, err)
+		log.Println("decode error: ", err)
+		return
+	}
+	expires := time.Now().Add(time.Minute * 15) // время жизни куки
+	token, err := h.authService.Login(us.Login, us.Password, ctx, expires)
+	if err != nil {
+		// Серверный ошибки
+		if errors.Is(err, context.Canceled) {
+			return
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			writeJsonError(w, http.StatusGatewayTimeout, "request timeout")
+			log.Println(err)
+			return
+		}
+		if errors.Is(err, customerrors.ErrTokenCreate) {
+			writeJsonError(w, http.StatusInternalServerError, "server error")
+			log.Println(err)
+			return
+		}
+		HandleError(w, err) // бизнес и бд ошибки
 		log.Println("database error:", err)
 		return
 	}

@@ -76,3 +76,16 @@ func (auth *AuthService) Register(login, password string, ctx context.Context, e
 	}
 	return token, nil
 }
+
+// Функция для логина пользователя
+func (auth *AuthService) Login(login, password string, ctx context.Context, exp time.Time) (string, error) {
+	id, err := auth.repo.Login(login, password, ctx)
+	if err != nil {
+		return "", err
+	}
+	token, err := auth.CreateToken(id, exp)
+	if err != nil {
+		return "", err
+	}
+	return token, nil
+}

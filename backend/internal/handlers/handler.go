@@ -50,7 +50,7 @@ func (h *HandlerNotes) GetNotes(w http.ResponseWriter, r *http.Request) {
 	var buf bytes.Buffer
 	notes, err := h.store.GetAll(ctx, *(us.User_id))
 	if err != nil {
-		ErrorDB(w, err)
+		HandleError(w, err)
 		log.Println("database error: ", err)
 		return
 	}
@@ -118,7 +118,7 @@ func (h *HandlerNotes) AddNote(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		ErrorDB(w, err)
+		HandleError(w, err)
 		log.Println("database error:", err)
 		return
 	}
@@ -164,7 +164,7 @@ func (h *HandlerNotes) DelNote(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		ErrorDB(w, err)
+		HandleError(w, err)
 		log.Println(err)
 		return
 	}
@@ -221,7 +221,7 @@ func (h *HandlerNotes) EditNote(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		ErrorDB(w, err)
+		HandleError(w, err)
 		log.Println(err)
 		return
 	}

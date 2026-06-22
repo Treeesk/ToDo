@@ -37,10 +37,11 @@ func jsonDecodeError(w http.ResponseWriter, err error) {
 	}
 }
 
-// Функция отправки ошибки БД в Response в формате JSON
-func ErrorDB(w http.ResponseWriter, err error) {
+// Функция отправки ошибки во взаимодействии с БД в Response в формате JSON
+func HandleError(w http.ResponseWriter, err error) {
 	var pgerr *pgconn.PgError
 	var notfounderr *customerrors.ErrorNotFound
+	var userErr *customerrors.UserError
 	switch {
 	case errors.As(err, &pgerr):
 		switch pgerr.Code {
@@ -56,7 +57,9 @@ func ErrorDB(w http.ResponseWriter, err error) {
 			writeJsonError(w, http.StatusServiceUnavailable, "Error: connection DB failure")
 		}
 	case errors.As(err, &notfounderr):
-		writeJsonError(w, http.StatusNotFound, "Error: not found this note")
+		writeJsonError(w, http.StatusNotFound, notfounderr.What)
+	case errors.As(err, &userErr):
+		writeJsonError(w, http.StatusUnauthorized, userErr.What)
 	default:
 		writeJsonError(w, http.StatusInternalServerError, "DB error")
 	}
