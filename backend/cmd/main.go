@@ -9,9 +9,15 @@ import (
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Println("config: error loading .env file, use base vars")
+	}
 	cfg := config.Load() // конфиг с переменными окружения
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // контекст на подключение к Бд(защита от зависания)

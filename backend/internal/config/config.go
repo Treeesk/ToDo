@@ -5,8 +5,6 @@ package config
 import (
 	"log"
 	"os"
-
-	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -21,10 +19,6 @@ type Config struct {
 }
 
 func Load() *Config {
-	err := godotenv.Load()
-	if err != nil {
-		log.Println("config: error loading .env file, use base vars")
-	}
 	secret := loadEnv("JWT_SECRET", " ")
 	if secret == " " {
 		log.Fatal("secret is required")
