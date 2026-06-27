@@ -2,15 +2,11 @@ package handlers
 
 // Хэндлеры для работы с пользователем(login, register, logout)
 import (
-	"ProjectGo/backend/internal/customerrors"
 	"context"
 	"encoding/json"
-	"errors"
 	"log"
 	"net/http"
 	"time"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 type user struct {
@@ -33,25 +29,7 @@ func (h *HandlerNotes) Register(w http.ResponseWriter, r *http.Request) {
 	expires_refresh := time.Now().AddDate(0, 0, 30)    // время жизни refresh токена
 	access_token, refresh_token, err := h.authService.Register(us.Login, us.Password, ctx, expires_access, expires_refresh)
 	if err != nil {
-		if errors.Is(err, context.Canceled) {
-			return
-		}
-		if errors.Is(err, context.DeadlineExceeded) {
-			writeJsonError(w, http.StatusGatewayTimeout, "request timeout")
-			log.Println(err)
-			return
-		}
-		if errors.Is(err, customerrors.ErrTokenCreate) {
-			writeJsonError(w, http.StatusInternalServerError, "server error")
-			log.Println(err)
-			return
-		}
-		if errors.Is(err, bcrypt.ErrHashTooShort) || errors.Is(err, bcrypt.ErrPasswordTooLong) {
-			writeJsonError(w, http.StatusBadRequest, "too long or too short password")
-			log.Println(err)
-			return
-		}
-		HandleError(w, err) // бизнес и бд ошибки
+		HandleError(w, err)
 		log.Println("Register failed:", err)
 		return
 	}
@@ -91,21 +69,7 @@ func (h *HandlerNotes) Login(w http.ResponseWriter, r *http.Request) {
 	expires_refresh := time.Now().AddDate(0, 0, 30)    // время жизни refresh токена
 	access_token, refresh_token, err := h.authService.Login(us.Login, us.Password, ctx, expires_access, expires_refresh)
 	if err != nil {
-		// Серверные ошибки
-		if errors.Is(err, context.Canceled) {
-			return
-		}
-		if errors.Is(err, context.DeadlineExceeded) {
-			writeJsonError(w, http.StatusGatewayTimeout, "request timeout")
-			log.Println(err)
-			return
-		}
-		if errors.Is(err, customerrors.ErrTokenCreate) {
-			writeJsonError(w, http.StatusInternalServerError, "server error")
-			log.Println(err)
-			return
-		}
-		HandleError(w, err) // бизнес и бд ошибки
+		HandleError(w, err)
 		log.Println("login failed:", err)
 		return
 	}
@@ -131,11 +95,37 @@ func (h *HandlerNotes) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 // Функция выхода пользователя из своего профиля
-// func (h *HandlerNotes) LogOut(w http.ResponseWriter, r *http.Request) {
-// 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second) // работаем с контекстом(пользователь может закрыть соединение или мы будем долго выполнять работу)
-// 	defer cancel()
-
-// }
+func (h *HandlerNotes) LogOut(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second) // работаем с контекстом(пользователь может закрыть соединение или мы будем долго выполнять работу)
+	defer cancel()
+	cook, err := r.Cookie("refresh-token")
+	if err != nil {
+		writeJsonError(w, http.StatusUnauthorized, "Unauthorized")
+		log.Println("Unauthorized user")
+		return
+	}
+	err = h.authService.LogOut(ctx, cook.Value)
+	if err != nil {
+		HandleError(w, err)
+		log.Println("login failed:", err)
+		return
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     "access-token",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+	})
+	http.SetCookie(w, &http.Cookie{
+		Name:     "refresh-token",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+	})
+	w.WriteHeader(http.StatusOK)
+}
 
 // Хэндлер для обновления access и refresh токенов
 func (h *HandlerNotes) Refresh(w http.ResponseWriter, r *http.Request) {
@@ -151,21 +141,7 @@ func (h *HandlerNotes) Refresh(w http.ResponseWriter, r *http.Request) {
 	expires_refresh := time.Now().AddDate(0, 0, 30)    // время жизни refresh токена
 	access, refresh, err := h.authService.Refresh(cook.Value, ctx, expires_access, expires_refresh)
 	if err != nil {
-		// Серверные ошибки
-		if errors.Is(err, context.Canceled) {
-			return
-		}
-		if errors.Is(err, context.DeadlineExceeded) {
-			writeJsonError(w, http.StatusGatewayTimeout, "request timeout")
-			log.Println(err)
-			return
-		}
-		if errors.Is(err, customerrors.ErrTokenCreate) {
-			writeJsonError(w, http.StatusInternalServerError, "server error")
-			log.Println(err)
-			return
-		}
-		HandleError(w, err) // бизнес и бд ошибки
+		HandleError(w, err)
 		// удаление старых кук
 		http.SetCookie(w, &http.Cookie{
 			Name:     "access-token",

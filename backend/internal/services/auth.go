@@ -90,6 +90,12 @@ func (auth *AuthService) Login(login, password string, ctx context.Context, exp_
 	return access_token, refresh_token, nil
 }
 
+// Функция LogOut user, Middleware для DB
+func (auth *AuthService) LogOut(ctx context.Context, refresh_token string) error {
+	err := auth.repo.LogOut(ctx, refresh_token)
+	return err
+}
+
 // check valid refresh token, if ok create refresh and access tokens
 func (auth *AuthService) Refresh(refresh string, ctx context.Context, exp_access, exp_refresh time.Time) (string, string, error) {
 	id, refresh_token, err := auth.repo.Refresh(refresh, exp_refresh, ctx)

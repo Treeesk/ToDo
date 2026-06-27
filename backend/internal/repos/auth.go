@@ -77,6 +77,13 @@ func (repo *ConnRepo) Login(login, password string, ctx context.Context, exp_ref
 	return userId, refresh_token, nil
 }
 
+// Функция удаления refresh_token из DB
+func (repo *ConnRepo) LogOut(ctx context.Context, refresh_token string) error {
+	token_hash := sha256.Sum256([]byte(refresh_token))
+	_, err := repo.Conn.Exec(ctx, "DELETE FROM refresh_tokens WHERE token_hash = $1", token_hash[:])
+	return err
+}
+
 // Функция проверки refresh token пользователя и в случае успеха создания нового
 func (repo *ConnRepo) Refresh(refresh string, exp_refresh time.Time, ctx context.Context) (int, string, error) {
 	type Data struct {
