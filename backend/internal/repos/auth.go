@@ -16,17 +16,32 @@ import (
 )
 
 // Создание пользователя, возвращаем id в случае успеха
-func (repo *ConnRepo) Register(login, password string, ctx context.Context) (int, error) {
+func (repo *ConnRepo) Register(login, password string, ctx context.Context, exp_refresh time.Time) (int, string, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return -1, err // слишком длинный или короткий пароль
+		return -1, "", err // слишком длинный или короткий пароль
 	}
 	var userId int
-	err = repo.Conn.QueryRow(ctx, "INSERT INTO users (user_login, user_password) VALUES ($1, $2) RETURNING id", login, string(hash)).Scan(&userId)
+	tx, err := repo.Conn.Begin(ctx) // начинаем транзакцию
 	if err != nil {
-		return -1, err
+		return -1, "", err
 	}
-	return userId, nil
+	defer tx.Rollback(ctx)
+	err = tx.QueryRow(ctx, "INSERT INTO users (user_login, user_password) VALUES ($1, $2) RETURNING id", login, string(hash)).Scan(&userId)
+	if err != nil {
+		return -1, "", err
+	}
+	refresh_token := create_refresh_token()
+	hash_refresh_token := sha256.Sum256([]byte(refresh_token))
+	_, err = tx.Exec(ctx, "INSERT INTO refresh_tokens (user_id, token_hash, expires_at, created_at) VALUES($1, $2, $3, $4)", userId, hash_refresh_token[:], exp_refresh, time.Now())
+	if err != nil {
+		return -1, "", err
+	}
+	err = tx.Commit(ctx) // заканчиваем транзакцию
+	if err != nil {
+		return -1, "", err
+	}
+	return userId, refresh_token, nil
 }
 
 // Логин пользователя, возвращаем id в случае успеха
@@ -67,7 +82,7 @@ func (repo *ConnRepo) Refresh(refresh string, exp_refresh time.Time, ctx context
 		}
 		return -1, "", err
 	}
-	_, err = tx.Exec(ctx, "DELETE FROM refresh_tokens WHERE token_hash = $1", token_hash) // удаляем старый refresh токен
+	_, err = tx.Exec(ctx, "DELETE FROM refresh_tokens WHERE token_hash = $1", token_hash[:]) // удаляем старый refresh токен
 	if err != nil {
 		return -1, "", err
 	}

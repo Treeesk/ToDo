@@ -5,6 +5,7 @@ import (
 	"ProjectGo/backend/internal/config"
 	"context"
 	"testing"
+	"time"
 )
 
 // Тест регистрации
@@ -13,7 +14,7 @@ func TestRegister(t *testing.T) {
 	conn := ConnUrlRepos(context.Background(), cfg)
 	defer conn.Conn.Close()
 	// Попытка создания существующего юзера
-	_, err := conn.Register("Yar", "qwerty123", context.Background())
+	_, _, err := conn.Register("Yar", "qwerty123", context.Background(), time.Now().AddDate(0, 0, 30))
 	if err == nil {
 		t.Fatal("expected error")
 	}

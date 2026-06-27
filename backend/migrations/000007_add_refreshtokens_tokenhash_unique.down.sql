@@ -1,0 +1,2 @@
+ALTER TABLE refresh_tokens
+DROP CONSTRAINT unique_token_hash;

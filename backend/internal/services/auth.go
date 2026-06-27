@@ -65,25 +65,25 @@ func (auth *AuthService) VerifyToken(tokenString string) error {
 }
 
 // Функция регистрации пользователя
-func (auth *AuthService) Register(login, password string, ctx context.Context, exp time.Time) (string, error) {
-	id, err := auth.repo.Register(login, password, ctx)
+func (auth *AuthService) Register(login, password string, ctx context.Context, exp_access, exp_refresh time.Time) (string, string, error) {
+	id, refresh_token, err := auth.repo.Register(login, password, ctx, exp_refresh)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	token, err := auth.CreateToken(id, exp)
+	access_token, err := auth.CreateToken(id, exp_access)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	return token, nil
+	return access_token, refresh_token, nil
 }
 
 // Функция для логина пользователя
-func (auth *AuthService) Login(login, password string, ctx context.Context, exp time.Time) (string, error) {
+func (auth *AuthService) Login(login, password string, ctx context.Context, exp_access, exp_refresh time.Time) (string, error) {
 	id, err := auth.repo.Login(login, password, ctx)
 	if err != nil {
 		return "", err
 	}
-	token, err := auth.CreateToken(id, exp)
+	token, err := auth.CreateToken(id, exp_access)
 	if err != nil {
 		return "", err
 	}
