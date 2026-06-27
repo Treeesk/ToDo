@@ -15,5 +15,6 @@ func Setuprouter(store *services.NotesStore, authService *services.AuthService) 
 	http.HandleFunc("/api/edit/", handler.EditNote)
 	http.HandleFunc("/api/register/", handler.Register)
 	http.HandleFunc("/api/login/", handler.Login)
-	// http.HandleFunc("/api/register/", handler.Register) вызов функции из auth.go
+	http.HandleFunc("/api/logout/", handler.LogOut)
+	http.HandleFunc("/api/refresh/", handler.Refresh)
 }

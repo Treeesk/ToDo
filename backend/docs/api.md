@@ -5,3 +5,4 @@
 * /api/add/ - POST запрос на добавление заметки
 * /api/del/ - DELETE запрос на удаление заметки
 * /api/register/ - POST запрос на регистрацию пользователя
+* /api/refresh/ - POST на обновление access и resfresh токенов

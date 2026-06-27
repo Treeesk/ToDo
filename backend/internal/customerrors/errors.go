@@ -18,8 +18,7 @@ type ErrorNotFound struct {
 }
 
 type UserError struct {
-	What  string
-	Login string
+	What string
 }
 
 func (e *ErrorNotFound) Error() string {
@@ -27,5 +26,5 @@ func (e *ErrorNotFound) Error() string {
 }
 
 func (e *UserError) Error() string {
-	return fmt.Sprintf("error: %s, login: %s", e.What, e.Login)
+	return fmt.Sprintf("error: %s", e.What)
 }

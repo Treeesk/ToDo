@@ -89,3 +89,16 @@ func (auth *AuthService) Login(login, password string, ctx context.Context, exp 
 	}
 	return token, nil
 }
+
+// check valid refresh token, if ok create refresh and access tokens
+func (auth *AuthService) Refresh(refresh string, ctx context.Context, exp_access, exp_refresh time.Time) (string, string, error) {
+	id, refresh_token, err := auth.repo.Refresh(refresh, exp_refresh, ctx)
+	if err != nil {
+		return "", "", err
+	}
+	access_token, err := auth.CreateToken(id, exp_access)
+	if err != nil {
+		return "", "", err
+	}
+	return access_token, refresh_token, nil
+}
