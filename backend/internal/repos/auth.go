@@ -15,7 +15,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// Создание пользователя, возвращаем id в случае успеха
+// Создание пользователя, возвращаем id и рефреш токен в случае успеха
 func (repo *ConnRepo) Register(login, password string, ctx context.Context, exp_refresh time.Time) (int, string, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -44,7 +44,7 @@ func (repo *ConnRepo) Register(login, password string, ctx context.Context, exp_
 	return userId, refresh_token, nil
 }
 
-// Логин пользователя, возвращаем id в случае успеха
+// Логин пользователя, возвращаем id и рефреш токен в случае успеха
 func (repo *ConnRepo) Login(login, password string, ctx context.Context, exp_refresh time.Time) (int, string, error) {
 	var userId int
 	var hashpass []byte
