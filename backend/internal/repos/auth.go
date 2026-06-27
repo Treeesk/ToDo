@@ -45,21 +45,36 @@ func (repo *ConnRepo) Register(login, password string, ctx context.Context, exp_
 }
 
 // Логин пользователя, возвращаем id в случае успеха
-func (repo *ConnRepo) Login(login, password string, ctx context.Context) (int, error) {
+func (repo *ConnRepo) Login(login, password string, ctx context.Context, exp_refresh time.Time) (int, string, error) {
 	var userId int
 	var hashpass []byte
-	err := repo.Conn.QueryRow(ctx, "SELECT id, user_password FROM users WHERE user_login = $1", login).Scan(&userId, &hashpass)
+	tx, err := repo.Conn.Begin(ctx) // начинаем транзакцию
+	if err != nil {
+		return -1, "", err
+	}
+	defer tx.Rollback(ctx)
+	err = tx.QueryRow(ctx, "SELECT id, user_password FROM users WHERE user_login = $1", login).Scan(&userId, &hashpass)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return -1, &customerrors.UserError{What: fmt.Sprintf("invalid login or password, login: %s", login)}
+			return -1, "", &customerrors.UserError{What: fmt.Sprintf("invalid login or password, login: %s", login)}
 		}
-		return -1, err
+		return -1, "", err
 	}
 	err = bcrypt.CompareHashAndPassword(hashpass, []byte(password))
 	if err != nil {
-		return -1, &customerrors.UserError{What: fmt.Sprintf("invalid login or password, login: %s", login)}
+		return -1, "", &customerrors.UserError{What: fmt.Sprintf("invalid login or password, login: %s", login)}
 	}
-	return userId, nil
+	refresh_token := create_refresh_token()
+	hash_refresh_token := sha256.Sum256([]byte(refresh_token))
+	_, err = tx.Exec(ctx, "INSERT INTO refresh_tokens (user_id, token_hash, expires_at, created_at) VALUES($1, $2, $3, $4)", userId, hash_refresh_token[:], exp_refresh, time.Now())
+	if err != nil {
+		return -1, "", err
+	}
+	err = tx.Commit(ctx) // заканчиваем транзакцию
+	if err != nil {
+		return -1, "", err
+	}
+	return userId, refresh_token, nil
 }
 
 // Функция проверки refresh token пользователя и в случае успеха создания нового
