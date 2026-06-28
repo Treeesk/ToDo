@@ -64,6 +64,8 @@ func (repo *ConnRepo) Login(login, password string, ctx context.Context, exp_ref
 	if err != nil {
 		return -1, "", &customerrors.UserError{What: fmt.Sprintf("invalid login or password, login: %s", login)}
 	}
+	// Удаляем старые токены (если их больше 100 на одного юзера)
+	_, err = tx.Exec(ctx, "DELETE FROM refresh_tokens WHERE id IN (SELECT id FROM refresh_tokens WHERE user_id = $1 ORDER BY created_at ASC LIMIT(SELECT GREATEST(COUNT(*) - 99, 0) FROM refresh_tokens WHERE user_id = $1))", userId)
 	refresh_token := create_refresh_token()
 	hash_refresh_token := sha256.Sum256([]byte(refresh_token))
 	_, err = tx.Exec(ctx, "INSERT INTO refresh_tokens (user_id, token_hash, expires_at, created_at) VALUES($1, $2, $3, $4)", userId, hash_refresh_token[:], exp_refresh, time.Now())

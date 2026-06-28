@@ -27,7 +27,7 @@ func TestLogin(t *testing.T) {
 	defer conn.Conn.Close()
 
 	// Верные данные
-	id, _, err := conn.Login("Yar", "qwerty123", context.Background(), time.Now().AddDate(0, 0, 30))
+	id, refresh_token, err := conn.Login("Yar", "qwerty123", context.Background(), time.Now().AddDate(0, 0, 30))
 	if err != nil {
 		t.Fatalf("error on login with valid data: %v", err)
 	}
@@ -39,6 +39,10 @@ func TestLogin(t *testing.T) {
 	if id != trueId {
 		t.Fatal("The ID returned by Login does not match the one existing in the database")
 	}
+	err = conn.LogOut(context.Background(), refresh_token)
+	if err != nil {
+		t.Fatalf("failed logout: %v", err)
+	}
 	// Неверный логин
 	_, _, err = conn.Login("badLogin", "qwerty123", context.Background(), time.Now().AddDate(0, 0, 30))
 	if err == nil {
@@ -49,6 +53,18 @@ func TestLogin(t *testing.T) {
 	if err == nil {
 		t.Fatal("no error occurs when entering an invalid password")
 	}
+	// Попытка залогиниться более чем 100 раз
+	for i := 0; i < 101; i++ {
+		id, _, err = conn.Login("Yar", "qwerty123", context.Background(), time.Now().AddDate(0, 0, 30))
+		if err != nil {
+			t.Fatalf("error on login with valid data: %v", err)
+		}
+	}
+	tag, err := conn.Conn.Exec(context.Background(), "SELECT * FROM refresh_tokens WHERE user_id = $1", id)
+	if tag.RowsAffected() > 100 {
+		t.Fatal("error: more refresh tokens have been created than allowed")
+	}
+	_, err = conn.Conn.Exec(context.Background(), "DELETE FROM refresh_tokens WHERE user_id = $1", id)
 }
 
 // Тест выхода из профиля
