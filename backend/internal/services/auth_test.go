@@ -25,13 +25,17 @@ func TestCreateVerifyValid(t *testing.T) {
 	cfg := config.Load()
 	conn := repos.ConnUrlRepos(context.Background(), cfg)
 	authService := NewAuthService(conn, cfg.JWTSecret)
-	token, err := authService.CreateToken(1, time.Now().Add(time.Minute*5))
+	id := 1
+	token, err := authService.CreateToken(id, time.Now().Add(time.Minute*5))
 	if err != nil {
 		t.Fatalf("Unknown error while creating the token: %v", err)
 	}
-	_, err = authService.VerifyToken(token)
+	user_id, err := authService.VerifyToken(token)
 	if err != nil {
 		t.Fatalf("Error verifying token: %v", err)
+	}
+	if user_id != id {
+		t.Fatal("user id from Verify dont equals id in Create token")
 	}
 }
 
