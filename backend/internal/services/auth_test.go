@@ -29,7 +29,7 @@ func TestCreateVerifyValid(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unknown error while creating the token: %v", err)
 	}
-	err = authService.VerifyToken(token)
+	_, err = authService.VerifyToken(token)
 	if err != nil {
 		t.Fatalf("Error verifying token: %v", err)
 	}
@@ -53,7 +53,7 @@ func TestVerifyInvalid(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error while creating the token: %v", err)
 	}
-	err = authService.VerifyToken(tokenString)
+	_, err = authService.VerifyToken(tokenString)
 	if err == nil {
 		t.Fatalf("expected error")
 	}
@@ -65,7 +65,7 @@ func TestVerifyInvalid(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error while creating the token: %v", err)
 	}
-	err = authService.VerifyToken(tokenString)
+	_, err = authService.VerifyToken(tokenString)
 	if err == nil {
 		t.Fatalf("signing method error expected")
 	}
@@ -83,7 +83,7 @@ func TestVerifyInvalid(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error while creating the token: %v", err)
 	}
-	err = authService.VerifyToken(tokenString)
+	_, err = authService.VerifyToken(tokenString)
 	if err == nil {
 		t.Fatalf("expected error: out of time")
 	}

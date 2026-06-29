@@ -47,7 +47,7 @@ func (auth *AuthService) CreateToken(user_id int, exp time.Time) (string, error)
 }
 
 // Функция проверки JWT
-func (auth *AuthService) VerifyToken(tokenString string) error {
+func (auth *AuthService) VerifyToken(tokenString string) (int, error) {
 	claims := &CustomClaims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -56,12 +56,12 @@ func (auth *AuthService) VerifyToken(tokenString string) error {
 		return []byte(auth.jwtSecret), nil
 	})
 	if err != nil {
-		return err
+		return -1, err
 	}
 	if !token.Valid {
-		return fmt.Errorf("invalid token")
+		return -1, fmt.Errorf("invalid token")
 	}
-	return nil
+	return claims.User_id, nil
 }
 
 // Функция регистрации пользователя

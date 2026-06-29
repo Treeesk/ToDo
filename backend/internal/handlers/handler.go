@@ -25,30 +25,25 @@ func NewHandlerNotes(store *services.NotesStore, authService *services.AuthServi
 }
 
 // Функция возвращающая JSON с полным списком всех заметок
-// Получает JSON {"user_id": int}
 // Возвращает JSON {"id": int, "user_id": int, "text": string}
 func (h *HandlerNotes) GetNotes(w http.ResponseWriter, r *http.Request) {
-	type user struct {
-		User_id *int `json:"user_id"`
-	}
-
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second) // работаем с контекстом(пользователь может закрыть соединение или мы будем долго выполнять работу)
 	defer cancel()
 
-	var us user
-	err := json.NewDecoder(r.Body).Decode(&us)
+	access_token, err := r.Cookie("access-token")
 	if err != nil {
-		jsonDecodeError(w, err)
-		log.Println("decode error: ", err)
+		writeJsonError(w, http.StatusUnauthorized, "missing cookie")
+		log.Printf("unknown user: %v", err)
 		return
 	}
-	if us.User_id == nil {
-		writeJsonError(w, http.StatusBadRequest, "unknown user")
-		log.Println("error: the user_id field is missing")
+	user_id, err := h.authService.VerifyToken(access_token.Value)
+	if err != nil {
+		writeJsonError(w, http.StatusUnauthorized, "Unauthorized user")
+		log.Printf("verify token fail: %v", err)
 		return
 	}
 	var buf bytes.Buffer
-	notes, err := h.store.GetAll(ctx, *(us.User_id))
+	notes, err := h.store.GetAll(ctx, user_id)
 	if err != nil {
 		HandleError(w, err)
 		log.Println("database error: ", err)
@@ -75,18 +70,29 @@ func (h *HandlerNotes) GetNotes(w http.ResponseWriter, r *http.Request) {
 }
 
 // Функция добавления заметки
-// Ожидается JSON вида {"user_id": int, "text": string}
+// Ожидается JSON вида {"text": string}
 func (h *HandlerNotes) AddNote(w http.ResponseWriter, r *http.Request) {
 	type addn struct {
-		User_id *int    `json:"user_id"`
-		Text    *string `json:"text"`
+		Text *string `json:"text"`
 	}
-	var note addn
-	err := json.NewDecoder(r.Body).Decode(&note)
-
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second) // работаем с контекстом(пользователь может закрыть соединение или мы будем долго выполнять работу)
 	defer cancel()
 
+	access_token, err := r.Cookie("access-token")
+	if err != nil {
+		writeJsonError(w, http.StatusUnauthorized, "missing cookie")
+		log.Printf("unknown user: %v", err)
+		return
+	}
+	user_id, err := h.authService.VerifyToken(access_token.Value)
+	if err != nil {
+		writeJsonError(w, http.StatusUnauthorized, "Unauthorized user")
+		log.Printf("verify token fail: %v", err)
+		return
+	}
+
+	var note addn
+	err = json.NewDecoder(r.Body).Decode(&note)
 	if err != nil {
 		jsonDecodeError(w, err)
 		log.Println("decode error: ", err)
@@ -97,17 +103,12 @@ func (h *HandlerNotes) AddNote(w http.ResponseWriter, r *http.Request) {
 		log.Println("error: the text field is missing")
 		return
 	}
-	if note.User_id == nil {
-		writeJsonError(w, http.StatusBadRequest, "unknown user")
-		log.Println("error: the user_id field is missing")
-		return
-	}
 	if strings.TrimSpace(*(note.Text)) == "" {
 		writeJsonError(w, http.StatusBadRequest, "text of note is required")
 		log.Println("error: text is required")
 		return
 	}
-	err = h.store.Add(ctx, *(note.User_id), *(note.Text))
+	err = h.store.Add(ctx, user_id, *(note.Text))
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			return
@@ -126,18 +127,30 @@ func (h *HandlerNotes) AddNote(w http.ResponseWriter, r *http.Request) {
 }
 
 // Функция для удаления заметок
-// Ожидается JSON вида {"user_id": int, "id": int}
+// Ожидается JSON вида {"id": int}
 func (h *HandlerNotes) DelNote(w http.ResponseWriter, r *http.Request) {
 	type deln struct {
-		User_id *int `json:"user_id"`
-		ID      *int `json:"id"`
+		ID *int `json:"id"`
 	}
-	var note deln
-	err := json.NewDecoder(r.Body).Decode(&note)
 
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second) // работаем с контекстом(пользователь может закрыть соединение или мы будем долго выполнять работу)
 	defer cancel()
 
+	access_token, err := r.Cookie("access-token")
+	if err != nil {
+		writeJsonError(w, http.StatusUnauthorized, "missing cookie")
+		log.Printf("unknown user: %v", err)
+		return
+	}
+	user_id, err := h.authService.VerifyToken(access_token.Value)
+	if err != nil {
+		writeJsonError(w, http.StatusUnauthorized, "Unauthorized user")
+		log.Printf("verify token fail: %v", err)
+		return
+	}
+
+	var note deln
+	err = json.NewDecoder(r.Body).Decode(&note)
 	if err != nil {
 		jsonDecodeError(w, err)
 		log.Println("decode error: ", err)
@@ -148,12 +161,7 @@ func (h *HandlerNotes) DelNote(w http.ResponseWriter, r *http.Request) {
 		log.Println("error: the id field is missing")
 		return
 	}
-	if note.User_id == nil {
-		writeJsonError(w, http.StatusBadRequest, "the user_id field is missing")
-		log.Println("error: the user_id field is missing")
-		return
-	}
-	err = h.store.Del(ctx, *(note.User_id), *(note.ID))
+	err = h.store.Del(ctx, user_id, *(note.ID))
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			return
@@ -172,19 +180,30 @@ func (h *HandlerNotes) DelNote(w http.ResponseWriter, r *http.Request) {
 }
 
 // Функция редактирования заметок
-// Ожидается JSON вида {"user_id:: int, "id": int, "text": string}
+// Ожидается JSON вида {"id": int, "text": string}
 func (h *HandlerNotes) EditNote(w http.ResponseWriter, r *http.Request) {
 	type editn struct {
-		ID      *int    `json:"id"`
-		User_id *int    `json:"user_id"`
-		Text    *string `json:"text"`
+		ID   *int    `json:"id"`
+		Text *string `json:"text"`
 	}
-	var note editn
-	err := json.NewDecoder(r.Body).Decode(&note)
-
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second) // работаем с контекстом(пользователь может закрыть соединение или мы будем долго выполнять работу)
 	defer cancel()
 
+	access_token, err := r.Cookie("access-token")
+	if err != nil {
+		writeJsonError(w, http.StatusUnauthorized, "missing cookie")
+		log.Printf("unknown user: %v", err)
+		return
+	}
+	user_id, err := h.authService.VerifyToken(access_token.Value)
+	if err != nil {
+		writeJsonError(w, http.StatusUnauthorized, "Unauthorized user")
+		log.Printf("verify token fail: %v", err)
+		return
+	}
+
+	var note editn
+	err = json.NewDecoder(r.Body).Decode(&note)
 	if err != nil {
 		jsonDecodeError(w, err)
 		log.Println("decode error: ", err)
@@ -200,17 +219,12 @@ func (h *HandlerNotes) EditNote(w http.ResponseWriter, r *http.Request) {
 		log.Println("error: the text field is missing")
 		return
 	}
-	if note.User_id == nil {
-		writeJsonError(w, http.StatusBadRequest, "the user_id field is missing")
-		log.Println("error: the user_id field is missing")
-		return
-	}
 	if strings.TrimSpace(*(note.Text)) == "" {
 		writeJsonError(w, http.StatusBadRequest, "text is required")
 		log.Println("error: text is required")
 		return
 	}
-	err = h.store.Edit(ctx, *(note.User_id), *(note.ID), *(note.Text))
+	err = h.store.Edit(ctx, user_id, *(note.ID), *(note.Text))
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			return
