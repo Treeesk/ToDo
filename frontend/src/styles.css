@@ -230,7 +230,7 @@ ul {
 .preview-board,
 .auth-panel,
 .composer,
-.ideas-panel,
+.status-panel,
 .summary-tile,
 .note-card,
 .empty-state {
@@ -301,13 +301,11 @@ ul {
   background: var(--accent-soft);
 }
 
-.feature-item h2,
-.ideas-panel h2 {
+.feature-item h2 {
   font-size: 1.05rem;
 }
 
-.feature-item p,
-.ideas-panel li {
+.feature-item p {
   color: var(--muted);
   line-height: 1.55;
 }
@@ -362,6 +360,11 @@ ul {
   padding: 1.5rem 0 3rem;
 }
 
+.workspace-shell--center {
+  display: grid;
+  place-items: center;
+}
+
 .workspace-header {
   display: flex;
   gap: 1rem;
@@ -411,15 +414,8 @@ ul {
   -webkit-box-orient: vertical;
 }
 
-.workspace-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.34fr);
-  gap: 0.9rem;
-  align-items: stretch;
-}
-
 .composer,
-.ideas-panel {
+.status-panel {
   padding: 1rem;
 }
 
@@ -430,10 +426,27 @@ ul {
   align-items: end;
 }
 
-.ideas-panel {
+.status-panel {
   display: grid;
-  align-content: start;
+  justify-items: center;
   gap: 0.8rem;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.loader {
+  width: 2rem;
+  height: 2rem;
+  border: 3px solid rgb(36 125 112 / 18%);
+  border-top-color: var(--accent);
+  border-radius: 999px;
+  animation: spin 900ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .message {
@@ -525,7 +538,6 @@ ul {
 @media (max-width: 900px) {
   .landing-hero,
   .auth-layout,
-  .workspace-grid,
   .workspace-summary {
     grid-template-columns: 1fr;
   }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   CheckCircle2,
@@ -7,7 +7,6 @@ import {
   Pencil,
   Plus,
   Save,
-  Search,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -16,21 +15,70 @@ import {
 } from "lucide-react";
 import { ApiError, createApiClient } from "./api.js";
 
+const AUTH_STORAGE_KEY = "notes-app-authenticated";
+
 /**
  * Root application component.
  *
  * The app starts on a presentation page and does not contact the backend until
- * the user submits login or registration. This keeps backend logs clean and
- * makes the first visit feel intentional.
+ * the user submits login or registration. After a successful login it stores a
+ * local marker, so reloads can validate the existing HttpOnly cookies and
+ * restore the workspace.
  */
 export function App() {
   const api = useMemo(() => createApiClient(), []);
-  const [view, setView] = useState("landing");
+  const [view, setView] = useState(() => (hasRememberedSession() ? "checking-session" : "landing"));
   const [authMode, setAuthMode] = useState("login");
   const [editingId, setEditingId] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [notes, setNotes] = useState([]);
+  const [latestNoteText, setLatestNoteText] = useState("");
+  const [recentNoteId, setRecentNoteId] = useState(null);
+
+  useEffect(() => {
+    if (view !== "checking-session") {
+      return;
+    }
+
+    let isMounted = true;
+
+    async function restoreSession() {
+      try {
+        const loadedNotes = await api.getNotes();
+
+        if (!isMounted) {
+          return;
+        }
+
+        const newestNote = getNewestNote(loadedNotes);
+        setNotes(loadedNotes);
+        setLatestNoteText(newestNote?.text || "");
+        setRecentNoteId(newestNote?.id || null);
+        setView("notes");
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        forgetSession();
+        setNotes([]);
+        setLatestNoteText("");
+        setRecentNoteId(null);
+        setView("landing");
+
+        if (error instanceof ApiError && error.status !== 401) {
+          setMessage(getUserErrorMessage(error));
+        }
+      }
+    }
+
+    restoreSession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [api, view]);
 
   async function runSavingAction(action) {
     setIsSaving(true);
@@ -45,7 +93,9 @@ export function App() {
   }
 
   async function refreshNotes() {
-    setNotes(await api.getNotes());
+    const loadedNotes = await api.getNotes();
+    setNotes(loadedNotes);
+    return loadedNotes;
   }
 
   function openAuth(nextMode = "login") {
@@ -72,7 +122,11 @@ export function App() {
         await api.login(login, password);
       }
 
-      await refreshNotes();
+      const loadedNotes = await refreshNotes();
+      const newestNote = getNewestNote(loadedNotes);
+      rememberSession();
+      setLatestNoteText(newestNote?.text || "");
+      setRecentNoteId(newestNote?.id || null);
       setView("notes");
       setMessage("");
     });
@@ -92,7 +146,10 @@ export function App() {
     await runSavingAction(async () => {
       await api.addNote(text);
       formElement.reset();
-      await refreshNotes();
+      const loadedNotes = await refreshNotes();
+      const newestNote = getNewestNote(loadedNotes);
+      setLatestNoteText(newestNote?.text || text);
+      setRecentNoteId(newestNote?.id || null);
       setMessage("");
     });
   }
@@ -111,6 +168,8 @@ export function App() {
     await runSavingAction(async () => {
       await api.editNote(id, text);
       await refreshNotes();
+      setLatestNoteText(text);
+      setRecentNoteId(id);
       setEditingId(null);
       setMessage("");
     });
@@ -119,7 +178,10 @@ export function App() {
   async function handleDeleteNote(id) {
     await runSavingAction(async () => {
       await api.deleteNote(id);
-      await refreshNotes();
+      const loadedNotes = await refreshNotes();
+      const newestNote = getNewestNote(loadedNotes);
+      setLatestNoteText(newestNote?.text || "");
+      setRecentNoteId(newestNote?.id || null);
       setMessage("");
     });
   }
@@ -127,11 +189,18 @@ export function App() {
   async function handleLogout() {
     await runSavingAction(async () => {
       await api.logout();
+      forgetSession();
       setView("landing");
       setNotes([]);
+      setLatestNoteText("");
+      setRecentNoteId(null);
       setEditingId(null);
       setMessage("");
     });
+  }
+
+  if (view === "checking-session") {
+    return <LoadingView />;
   }
 
   if (view === "landing") {
@@ -161,8 +230,10 @@ export function App() {
     <NotesView
       editingId={editingId}
       isSaving={isSaving}
+      latestNoteText={latestNoteText}
       message={message}
       notes={notes}
+      recentNoteId={recentNoteId}
       onAddNote={handleAddNote}
       onCancelEdit={() => setEditingId(null)}
       onDeleteNote={handleDeleteNote}
@@ -176,13 +247,24 @@ export function App() {
   );
 }
 
+function LoadingView() {
+  return (
+    <main className="workspace-shell workspace-shell--center">
+      <section className="status-panel" aria-live="polite">
+        <div className="loader" aria-hidden="true" />
+        <p>Проверяем сохраненный вход...</p>
+      </section>
+    </main>
+  );
+}
+
 function LandingView({ onLogin, onRegister }) {
   return (
     <main className="landing-layout">
       <section className="landing-hero" aria-label="Описание сервиса">
         <div className="hero-copy">
           <p className="kicker">Личные заметки и задачи</p>
-          <h1>Соберите мысли в спокойный рабочий список.</h1>
+          <h1>Заметки без лишнего шума.</h1>
           <p className="intro">
             Быстро сохраняйте задачи, идеи и напоминания. Возвращайтесь к ним тогда, когда
             действительно нужно действовать.
@@ -223,7 +305,7 @@ function LandingView({ onLogin, onRegister }) {
       <section className="landing-features" aria-label="Возможности">
         <Feature icon={<Plus size={20} aria-hidden="true" />} title="Добавляйте быстро" text="Короткая форма всегда под рукой после входа." />
         <Feature icon={<Pencil size={20} aria-hidden="true" />} title="Исправляйте без лишних шагов" text="Редактирование происходит прямо в карточке заметки." />
-        <Feature icon={<Search size={20} aria-hidden="true" />} title="Видите главное" text="Заметки разложены карточками, чтобы список легко читался." />
+        <Feature icon={<ShieldCheck size={20} aria-hidden="true" />} title="Видите главное" text="Заметки разложены карточками, чтобы список легко читался." />
       </section>
     </main>
   );
@@ -316,8 +398,10 @@ function AuthView({ authMode, isSaving, message, onBack, onModeChange, onSubmit 
 function NotesView({
   editingId,
   isSaving,
+  latestNoteText,
   message,
   notes,
+  recentNoteId,
   onAddNote,
   onCancelEdit,
   onDeleteNote,
@@ -325,8 +409,10 @@ function NotesView({
   onLogout,
   onSaveNote,
 }) {
-  const count = notes.length;
-  const latestNote = notes[0]?.text || "Новая заметка появится здесь после сохранения.";
+  const orderedNotes = orderNotes(notes, recentNoteId);
+  const count = orderedNotes.length;
+  const latestNote =
+    latestNoteText || orderedNotes[0]?.text || "Новая заметка появится здесь после сохранения.";
 
   return (
     <main className="workspace-shell">
@@ -352,33 +438,22 @@ function NotesView({
         </article>
       </section>
 
-      <section className="workspace-grid">
-        <section className="composer" aria-label="Добавить заметку">
-          <form className="composer-form" onSubmit={onAddNote}>
-            <label>
-              <span>Новая заметка</span>
-              <textarea
-                name="text"
-                rows="5"
-                placeholder="Например: проверить миграции, купить продукты, записать идею..."
-                required
-              />
-            </label>
-            <button className="primary-action" type="submit" disabled={isSaving}>
-              <Plus size={18} aria-hidden="true" />
-              Добавить
-            </button>
-          </form>
-        </section>
-
-        <aside className="ideas-panel" aria-label="Идеи для заметок">
-          <h2>Что можно записать</h2>
-          <ul>
-            <li>одну главную задачу на сегодня;</li>
-            <li>идею, к которой нужно вернуться;</li>
-            <li>маленькое дело, которое легко забыть.</li>
-          </ul>
-        </aside>
+      <section className="composer" aria-label="Добавить заметку">
+        <form className="composer-form" onSubmit={onAddNote}>
+          <label>
+            <span>Новая заметка</span>
+            <textarea
+              name="text"
+              rows="5"
+              placeholder="Например: проверить миграции, купить продукты, записать идею..."
+              required
+            />
+          </label>
+          <button className="primary-action" type="submit" disabled={isSaving}>
+            <Plus size={18} aria-hidden="true" />
+            Добавить
+          </button>
+        </form>
       </section>
 
       <Message text={message} />
@@ -389,7 +464,7 @@ function NotesView({
         </div>
         <div className="notes-grid">
           {count ? (
-            notes.map((note) => (
+            orderedNotes.map((note) => (
               <NoteCard
                 key={note.id}
                 isEditing={editingId === note.id}
@@ -510,6 +585,48 @@ function getUserErrorMessage(error) {
   ]);
 
   return messages.get(error.message) || error.message || "Что-то пошло не так.";
+}
+
+function hasRememberedSession() {
+  try {
+    return localStorage.getItem(AUTH_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function rememberSession() {
+  try {
+    localStorage.setItem(AUTH_STORAGE_KEY, "true");
+  } catch {
+    // The HttpOnly cookie is still the real session source.
+  }
+}
+
+function forgetSession() {
+  try {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+  } catch {
+    // Ignored because logout state is still cleared in React.
+  }
+}
+
+function getNewestNote(notes) {
+  return [...notes].sort((left, right) => right.id - left.id)[0] || null;
+}
+
+function orderNotes(notes, recentNoteId) {
+  return [...notes].sort((left, right) => {
+    if (left.id === recentNoteId) {
+      return -1;
+    }
+
+    if (right.id === recentNoteId) {
+      return 1;
+    }
+
+    return right.id - left.id;
+  });
 }
 
 function Message({ text }) {
