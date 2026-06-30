@@ -161,6 +161,7 @@ export function App() {
         await api.login(login, password);
       }
 
+      resetMobileViewport();
       navigate("/notes", { replace: true });
     } catch (error) {
       setMessage(getUserErrorMessage(error));
@@ -444,6 +445,7 @@ function NotesView({
   const count = orderedNotes.length;
   const latestNote =
     latestNoteText || orderedNotes[0]?.text || "Новая заметка появится здесь после сохранения.";
+  const latestNoteSize = getSummaryTextSize(latestNote);
 
   return (
     <main className="workspace-shell">
@@ -465,7 +467,7 @@ function NotesView({
         </article>
         <article className="summary-tile summary-tile--wide">
           <p>Последняя запись</p>
-          <strong>{latestNote}</strong>
+          <strong className={`summary-note summary-note--${latestNoteSize}`}>{latestNote}</strong>
         </article>
       </section>
 
@@ -638,6 +640,14 @@ function getCurrentPath() {
   return allowedPaths.has(window.location.pathname) ? window.location.pathname : "/";
 }
 
+function resetMobileViewport() {
+  if (document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur();
+  }
+
+  window.scrollTo({ top: 0, left: 0 });
+}
+
 function getNewestNote(notes) {
   return [...notes].sort((left, right) => right.id - left.id)[0] || null;
 }
@@ -654,6 +664,18 @@ function orderNotes(notes, recentNoteId) {
 
     return right.id - left.id;
   });
+}
+
+function getSummaryTextSize(text) {
+  if (text.length > 90) {
+    return "small";
+  }
+
+  if (text.length > 42) {
+    return "medium";
+  }
+
+  return "large";
 }
 
 function Message({ text }) {
