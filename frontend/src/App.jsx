@@ -15,21 +15,19 @@ import {
 } from "lucide-react";
 import { ApiError, createApiClient } from "./api.js";
 
-const AUTH_STORAGE_KEY = "notes-app-authenticated";
-
 /**
  * Root application component.
  *
- * The app starts on a presentation page and does not contact the backend until
- * the user submits login or registration. After a successful login it stores a
- * local marker, so reloads can validate the existing HttpOnly cookies and
- * restore the workspace.
+ * The current URL is the source of truth:
+ * "/" is public, "/login" and "/register" submit auth requests, and
+ * "/notes" is protected by loading notes from the backend with HttpOnly
+ * cookies.
  */
 export function App() {
   const api = useMemo(() => createApiClient(), []);
-  const [view, setView] = useState(() => (hasRememberedSession() ? "checking-session" : "landing"));
-  const [authMode, setAuthMode] = useState("login");
+  const [path, setPath] = useState(getCurrentPath);
   const [editingId, setEditingId] = useState(null);
+  const [isLoadingNotes, setIsLoadingNotes] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [notes, setNotes] = useState([]);
@@ -37,13 +35,27 @@ export function App() {
   const [recentNoteId, setRecentNoteId] = useState(null);
 
   useEffect(() => {
-    if (view !== "checking-session") {
+    function handlePopState() {
+      setPath(getCurrentPath());
+      setMessage("");
+    }
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (path !== "/notes") {
       return;
     }
 
     let isMounted = true;
+    setIsLoadingNotes(true);
 
-    async function restoreSession() {
+    async function loadProtectedNotes() {
       try {
         const loadedNotes = await api.getNotes();
 
@@ -51,34 +63,27 @@ export function App() {
           return;
         }
 
-        const newestNote = getNewestNote(loadedNotes);
-        setNotes(loadedNotes);
-        setLatestNoteText(newestNote?.text || "");
-        setRecentNoteId(newestNote?.id || null);
-        setView("notes");
+        applyNotesState(loadedNotes);
+        setMessage("");
       } catch (error) {
         if (!isMounted) {
           return;
         }
 
-        forgetSession();
-        setNotes([]);
-        setLatestNoteText("");
-        setRecentNoteId(null);
-        setView("landing");
-
-        if (error instanceof ApiError && error.status !== 401) {
-          setMessage(getUserErrorMessage(error));
+        handleAuthFailure(error);
+      } finally {
+        if (isMounted) {
+          setIsLoadingNotes(false);
         }
       }
     }
 
-    restoreSession();
+    loadProtectedNotes();
 
     return () => {
       isMounted = false;
     };
-  }, [api, view]);
+  }, [api, path]);
 
   async function runSavingAction(action) {
     setIsSaving(true);
@@ -86,7 +91,7 @@ export function App() {
     try {
       await action();
     } catch (error) {
-      setMessage(getUserErrorMessage(error));
+      handleAuthFailure(error);
     } finally {
       setIsSaving(false);
     }
@@ -94,14 +99,46 @@ export function App() {
 
   async function refreshNotes() {
     const loadedNotes = await api.getNotes();
-    setNotes(loadedNotes);
+    applyNotesState(loadedNotes);
     return loadedNotes;
   }
 
-  function openAuth(nextMode = "login") {
-    setAuthMode(nextMode);
+  function navigate(nextPath, { replace = false } = {}) {
+    if (getCurrentPath() !== nextPath) {
+      const method = replace ? "replaceState" : "pushState";
+      window.history[method](null, "", nextPath);
+    }
+
+    setPath(nextPath);
     setMessage("");
-    setView("auth");
+
+    if (nextPath !== "/notes") {
+      clearNotesState();
+    }
+  }
+
+  function applyNotesState(loadedNotes, latestOverride = null, recentOverride = null) {
+    const newestNote = getNewestNote(loadedNotes);
+    setNotes(loadedNotes);
+    setLatestNoteText(latestOverride ?? newestNote?.text ?? "");
+    setRecentNoteId(recentOverride ?? newestNote?.id ?? null);
+  }
+
+  function clearNotesState() {
+    setNotes([]);
+    setLatestNoteText("");
+    setRecentNoteId(null);
+    setEditingId(null);
+  }
+
+  function handleAuthFailure(error) {
+    if (isUnauthorizedError(error)) {
+      clearNotesState();
+      navigate("/", { replace: true });
+      return;
+    }
+
+    setMessage(getUserErrorMessage(error));
   }
 
   async function handleAuthSubmit(event) {
@@ -115,21 +152,21 @@ export function App() {
       return;
     }
 
-    await runSavingAction(async () => {
-      if (authMode === "register") {
+    setIsSaving(true);
+
+    try {
+      if (path === "/register") {
         await api.register(login, password);
       } else {
         await api.login(login, password);
       }
 
-      const loadedNotes = await refreshNotes();
-      const newestNote = getNewestNote(loadedNotes);
-      rememberSession();
-      setLatestNoteText(newestNote?.text || "");
-      setRecentNoteId(newestNote?.id || null);
-      setView("notes");
-      setMessage("");
-    });
+      navigate("/notes", { replace: true });
+    } catch (error) {
+      setMessage(getUserErrorMessage(error));
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   async function handleAddNote(event) {
@@ -189,60 +226,54 @@ export function App() {
   async function handleLogout() {
     await runSavingAction(async () => {
       await api.logout();
-      forgetSession();
-      setView("landing");
-      setNotes([]);
-      setLatestNoteText("");
-      setRecentNoteId(null);
-      setEditingId(null);
-      setMessage("");
+      clearNotesState();
+      navigate("/", { replace: true });
     });
   }
 
-  if (view === "checking-session") {
-    return <LoadingView />;
-  }
-
-  if (view === "landing") {
-    return <LandingView onLogin={() => openAuth("login")} onRegister={() => openAuth("register")} />;
-  }
-
-  if (view === "auth") {
+  if (path === "/login" || path === "/register") {
     return (
       <AuthView
-        authMode={authMode}
+        authMode={path === "/register" ? "register" : "login"}
         isSaving={isSaving}
         message={message}
-        onBack={() => {
-          setMessage("");
-          setView("landing");
-        }}
-        onModeChange={(nextMode) => {
-          setAuthMode(nextMode);
-          setMessage("");
-        }}
+        onBack={() => navigate("/")}
+        onModeChange={(nextMode) => navigate(nextMode === "register" ? "/register" : "/login", { replace: true })}
         onSubmit={handleAuthSubmit}
       />
     );
   }
 
+  if (path === "/notes") {
+    if (isLoadingNotes) {
+      return <LoadingView />;
+    }
+
+    return (
+      <NotesView
+        editingId={editingId}
+        isSaving={isSaving}
+        latestNoteText={latestNoteText}
+        message={message}
+        notes={notes}
+        recentNoteId={recentNoteId}
+        onAddNote={handleAddNote}
+        onCancelEdit={() => setEditingId(null)}
+        onDeleteNote={handleDeleteNote}
+        onEditNote={(id) => {
+          setEditingId(id);
+          setMessage("");
+        }}
+        onLogout={handleLogout}
+        onSaveNote={handleEditNote}
+      />
+    );
+  }
+
   return (
-    <NotesView
-      editingId={editingId}
-      isSaving={isSaving}
-      latestNoteText={latestNoteText}
-      message={message}
-      notes={notes}
-      recentNoteId={recentNoteId}
-      onAddNote={handleAddNote}
-      onCancelEdit={() => setEditingId(null)}
-      onDeleteNote={handleDeleteNote}
-      onEditNote={(id) => {
-        setEditingId(id);
-        setMessage("");
-      }}
-      onLogout={handleLogout}
-      onSaveNote={handleEditNote}
+    <LandingView
+      onLogin={() => navigate("/login")}
+      onRegister={() => navigate("/register")}
     />
   );
 }
@@ -252,7 +283,7 @@ function LoadingView() {
     <main className="workspace-shell workspace-shell--center">
       <section className="status-panel" aria-live="polite">
         <div className="loader" aria-hidden="true" />
-        <p>Проверяем сохраненный вход...</p>
+        <p>Загружаем заметки...</p>
       </section>
     </main>
   );
@@ -569,6 +600,17 @@ function getUserErrorMessage(error) {
     return "Что-то пошло не так.";
   }
 
+  const rawMessage = error.message || "";
+  const normalizedMessage = rawMessage.toLowerCase();
+
+  if (normalizedMessage.includes("invalid login or password")) {
+    return "Неверный логин или пароль.";
+  }
+
+  if (normalizedMessage.includes("already exists")) {
+    return "Пользователь с таким логином уже есть.";
+  }
+
   const messages = new Map([
     ["missing cookie", "Войдите в аккаунт, чтобы открыть заметки."],
     ["Unauthorized", "Войдите в аккаунт, чтобы продолжить."],
@@ -584,31 +626,16 @@ function getUserErrorMessage(error) {
     ["Request failed", "Не удалось выполнить запрос."],
   ]);
 
-  return messages.get(error.message) || error.message || "Что-то пошло не так.";
+  return messages.get(rawMessage) || "Не удалось выполнить запрос.";
 }
 
-function hasRememberedSession() {
-  try {
-    return localStorage.getItem(AUTH_STORAGE_KEY) === "true";
-  } catch {
-    return false;
-  }
+function isUnauthorizedError(error) {
+  return error instanceof ApiError && error.status === 401;
 }
 
-function rememberSession() {
-  try {
-    localStorage.setItem(AUTH_STORAGE_KEY, "true");
-  } catch {
-    // The HttpOnly cookie is still the real session source.
-  }
-}
-
-function forgetSession() {
-  try {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-  } catch {
-    // Ignored because logout state is still cleared in React.
-  }
+function getCurrentPath() {
+  const allowedPaths = new Set(["/", "/login", "/register", "/notes"]);
+  return allowedPaths.has(window.location.pathname) ? window.location.pathname : "/";
 }
 
 function getNewestNote(notes) {
