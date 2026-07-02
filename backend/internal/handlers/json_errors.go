@@ -74,6 +74,8 @@ func HandleError(w http.ResponseWriter, err error) {
 			writeJsonError(w, http.StatusServiceUnavailable, "Error: connection DB failure")
 		case "22021":
 			writeJsonError(w, http.StatusBadRequest, "Error: invalid byte sequence")
+		default:
+			writeJsonError(w, http.StatusInternalServerError, "DB error")
 		}
 	case errors.As(err, &notfounderr):
 		writeJsonError(w, http.StatusNotFound, notfounderr.What)

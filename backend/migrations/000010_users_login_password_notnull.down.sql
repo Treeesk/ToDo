@@ -1,0 +1,3 @@
+ALTER TABLE users
+ALTER COLUMN user_login DROP NOT NULL,
+ALTER COLUMN user_password DROP NOT NULL;

@@ -16,6 +16,11 @@ type user struct {
 
 // Хэндлер для регистрации пользователя
 func (h *HandlerNotes) Register(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJsonError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		log.Println("error: method not allowed")
+		return
+	}
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second) // работаем с контекстом(пользователь может закрыть соединение или мы будем долго выполнять работу)
 	defer cancel()
 	var us user
@@ -23,6 +28,11 @@ func (h *HandlerNotes) Register(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		jsonDecodeError(w, err)
 		log.Println("decode error: ", err)
+		return
+	}
+	if us.Login == "" || us.Password == "" {
+		writeJsonError(w, http.StatusBadRequest, "invalid login or password")
+		log.Printf("invalid login: %s or password: %s", us.Login, us.Password)
 		return
 	}
 	expires_access := time.Now().Add(time.Minute * 15) // время жизни куки
@@ -56,6 +66,11 @@ func (h *HandlerNotes) Register(w http.ResponseWriter, r *http.Request) {
 
 // Хэндлер для логина пользователя
 func (h *HandlerNotes) Login(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJsonError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		log.Println("error: method not allowed")
+		return
+	}
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second) // работаем с контекстом(пользователь может закрыть соединение или мы будем долго выполнять работу)
 	defer cancel()
 	var us user
@@ -96,6 +111,11 @@ func (h *HandlerNotes) Login(w http.ResponseWriter, r *http.Request) {
 
 // Функция выхода пользователя из своего профиля
 func (h *HandlerNotes) LogOut(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJsonError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		log.Println("error: method not allowed")
+		return
+	}
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second) // работаем с контекстом(пользователь может закрыть соединение или мы будем долго выполнять работу)
 	defer cancel()
 	cook, err := r.Cookie("refresh-token")
@@ -129,6 +149,11 @@ func (h *HandlerNotes) LogOut(w http.ResponseWriter, r *http.Request) {
 
 // Хэндлер для обновления access и refresh токенов
 func (h *HandlerNotes) Refresh(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJsonError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		log.Println("error: method not allowed")
+		return
+	}
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second) // работаем с контекстом(пользователь может закрыть соединение или мы будем долго выполнять работу)
 	defer cancel()
 	cook, err := r.Cookie("refresh-token")

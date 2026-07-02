@@ -27,6 +27,11 @@ func NewHandlerNotes(store *services.NotesStore, authService *services.AuthServi
 // Функция возвращающая JSON с полным списком всех заметок
 // Возвращает JSON {"id": int, "user_id": int, "text": string}
 func (h *HandlerNotes) GetNotes(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJsonError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		log.Println("error: not allowed method")
+		return
+	}
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second) // работаем с контекстом(пользователь может закрыть соединение или мы будем долго выполнять работу)
 	defer cancel()
 
@@ -72,6 +77,11 @@ func (h *HandlerNotes) GetNotes(w http.ResponseWriter, r *http.Request) {
 // Функция добавления заметки
 // Ожидается JSON вида {"text": string}
 func (h *HandlerNotes) AddNote(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJsonError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		log.Println("error: method not allowed")
+		return
+	}
 	type addn struct {
 		Text *string `json:"text"`
 	}
@@ -129,6 +139,11 @@ func (h *HandlerNotes) AddNote(w http.ResponseWriter, r *http.Request) {
 // Функция для удаления заметок
 // Ожидается JSON вида {"id": int}
 func (h *HandlerNotes) DelNote(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		writeJsonError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		log.Println("error: method not allowed")
+		return
+	}
 	type deln struct {
 		ID *int `json:"id"`
 	}
@@ -182,6 +197,11 @@ func (h *HandlerNotes) DelNote(w http.ResponseWriter, r *http.Request) {
 // Функция редактирования заметок
 // Ожидается JSON вида {"id": int, "text": string}
 func (h *HandlerNotes) EditNote(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		writeJsonError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		log.Println("error: method not allowed")
+		return
+	}
 	type editn struct {
 		ID   *int    `json:"id"`
 		Text *string `json:"text"`
