@@ -6,15 +6,15 @@ import (
 	"net/http"
 )
 
-func Setuprouter(store *services.NotesStore, authService *services.AuthService) {
+func Setuprouter(mux *http.ServeMux, store *services.NotesStore, authService *services.AuthService) {
 	handler := handlers.NewHandlerNotes(store, authService) // инициализация хендлер класса для работы с хендлер функциями заметок
 
-	http.HandleFunc("/api/", handler.GetNotes)
-	http.HandleFunc("/api/add/", handler.AddNote)
-	http.HandleFunc("/api/del/", handler.DelNote)
-	http.HandleFunc("/api/edit/", handler.EditNote)
-	http.HandleFunc("/api/register/", handler.Register)
-	http.HandleFunc("/api/login/", handler.Login)
-	http.HandleFunc("/api/logout/", handler.LogOut)
-	http.HandleFunc("/api/refresh/", handler.Refresh)
+	mux.HandleFunc("/api/", handler.GetNotes)
+	mux.HandleFunc("/api/add/", handler.AddNote)
+	mux.HandleFunc("/api/del/", handler.DelNote)
+	mux.HandleFunc("/api/edit/", handler.EditNote)
+	mux.HandleFunc("/api/register/", handler.Register)
+	mux.HandleFunc("/api/login/", handler.Login)
+	mux.HandleFunc("/api/logout/", handler.LogOut)
+	mux.HandleFunc("/api/refresh/", handler.Refresh)
 }
