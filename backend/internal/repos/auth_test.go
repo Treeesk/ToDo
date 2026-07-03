@@ -4,132 +4,188 @@ package repos
 import (
 	"ProjectGo/backend/internal/config"
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 )
 
-// Тест регистрации
-func TestRegister(t *testing.T) {
+const testPassword = "qwerty123"
+
+func openTestConn(t *testing.T) *ConnRepo {
+	t.Helper()
+
 	cfg := config.Load()
 	conn := ConnUrlRepos(context.Background(), cfg)
-	defer conn.Conn.Close()
-	// Попытка создания существующего юзера
-	_, _, err := conn.Register("Yar", "qwerty123", context.Background(), time.Now().AddDate(0, 0, 30))
+	t.Cleanup(func() {
+		conn.Conn.Close()
+	})
+
+	return conn
+}
+
+func createTestUser(t *testing.T, conn *ConnRepo) string {
+	t.Helper()
+
+	login := uniqueTestLogin(t)
+	_, refreshToken, err := conn.Register(login, testPassword, context.Background(), time.Now().AddDate(0, 0, 30))
+	if err != nil {
+		t.Fatalf("failed to register test user: %v", err)
+	}
+	if err := conn.LogOut(context.Background(), refreshToken); err != nil {
+		t.Fatalf("failed to clean registration refresh token: %v", err)
+	}
+
+	t.Cleanup(func() {
+		_, _ = conn.Conn.Exec(context.Background(), "DELETE FROM users WHERE user_login = $1", login)
+	})
+
+	return login
+}
+
+func uniqueTestLogin(t *testing.T) string {
+	t.Helper()
+
+	name := strings.NewReplacer("/", "_", " ", "_").Replace(t.Name())
+	return fmt.Sprintf("test_%s_%d", name, time.Now().UnixNano())
+}
+
+// Тест регистрации
+func TestRegister(t *testing.T) {
+	conn := openTestConn(t)
+	login := uniqueTestLogin(t)
+	t.Cleanup(func() {
+		_, _ = conn.Conn.Exec(context.Background(), "DELETE FROM users WHERE user_login = $1", login)
+	})
+
+	id, refreshToken, err := conn.Register(login, testPassword, context.Background(), time.Now().AddDate(0, 0, 30))
+	if err != nil {
+		t.Fatalf("error on register with valid data: %v", err)
+	}
+	if id <= 0 {
+		t.Fatalf("expected positive user id, got %d", id)
+	}
+	if refreshToken == "" {
+		t.Fatal("expected refresh token")
+	}
+
+	_, _, err = conn.Register(login, testPassword, context.Background(), time.Now().AddDate(0, 0, 30))
 	if err == nil {
-		t.Fatal("expected error")
+		t.Fatal("expected duplicate login error")
 	}
 }
 
 // Тест логина
 func TestLogin(t *testing.T) {
-	cfg := config.Load()
-	conn := ConnUrlRepos(context.Background(), cfg)
-	defer conn.Conn.Close()
+	conn := openTestConn(t)
+	login := createTestUser(t, conn)
 
 	// Верные данные
-	id, refresh_token, err := conn.Login("Yar", "qwerty123", context.Background(), time.Now().AddDate(0, 0, 30))
+	id, refreshToken, err := conn.Login(login, testPassword, context.Background(), time.Now().AddDate(0, 0, 30))
 	if err != nil {
 		t.Fatalf("error on login with valid data: %v", err)
 	}
 	// Проверка возврата верного id
 	var trueId int
-	if err = conn.Conn.QueryRow(context.Background(), "SELECT id FROM users WHERE user_login = $1", "Yar").Scan(&trueId); err != nil {
+	if err = conn.Conn.QueryRow(context.Background(), "SELECT id FROM users WHERE user_login = $1", login).Scan(&trueId); err != nil {
 		t.Fatalf("unknown: %v", err)
 	}
 	if id != trueId {
 		t.Fatal("The ID returned by Login does not match the one existing in the database")
 	}
-	err = conn.LogOut(context.Background(), refresh_token)
+	err = conn.LogOut(context.Background(), refreshToken)
 	if err != nil {
 		t.Fatalf("failed logout: %v", err)
 	}
 	// Неверный логин
-	_, _, err = conn.Login("badLogin", "qwerty123", context.Background(), time.Now().AddDate(0, 0, 30))
+	_, _, err = conn.Login(uniqueTestLogin(t), testPassword, context.Background(), time.Now().AddDate(0, 0, 30))
 	if err == nil {
 		t.Fatal("no error occurs when entering an invalid login")
 	}
 	// Неверный пароль
-	_, _, err = conn.Login("Yar", "fdgfd", context.Background(), time.Now().AddDate(0, 0, 30))
+	_, _, err = conn.Login(login, "fdgfd", context.Background(), time.Now().AddDate(0, 0, 30))
 	if err == nil {
 		t.Fatal("no error occurs when entering an invalid password")
 	}
 	// Попытка залогиниться более чем 100 раз
 	for i := 0; i < 101; i++ {
-		id, _, err = conn.Login("Yar", "qwerty123", context.Background(), time.Now().AddDate(0, 0, 30))
+		id, _, err = conn.Login(login, testPassword, context.Background(), time.Now().AddDate(0, 0, 30))
 		if err != nil {
 			t.Fatalf("error on login with valid data: %v", err)
 		}
 	}
-	tag, err := conn.Conn.Exec(context.Background(), "SELECT * FROM refresh_tokens WHERE user_id = $1", id)
-	if tag.RowsAffected() > 100 {
+	var tokenCount int
+	err = conn.Conn.QueryRow(context.Background(), "SELECT COUNT(*) FROM refresh_tokens WHERE user_id = $1", id).Scan(&tokenCount)
+	if err != nil {
+		t.Fatalf("error counting refresh tokens: %v", err)
+	}
+	if tokenCount > 100 {
 		t.Fatal("error: more refresh tokens have been created than allowed")
 	}
-	_, err = conn.Conn.Exec(context.Background(), "DELETE FROM refresh_tokens WHERE user_id = $1", id)
 }
 
 // Тест выхода из профиля
 func TestLogOut(t *testing.T) {
-	cfg := config.Load()
-	conn := ConnUrlRepos(context.Background(), cfg)
-	defer conn.Conn.Close()
+	conn := openTestConn(t)
+	login := createTestUser(t, conn)
 
 	// логин и логаут
-	id, refresh_token, err := conn.Login("Test", "test123", context.Background(), time.Now().AddDate(0, 0, 30))
+	id, refreshToken, err := conn.Login(login, testPassword, context.Background(), time.Now().AddDate(0, 0, 30))
 	if err != nil {
 		t.Fatalf("unknown error on Login: %v", err)
 	}
-	err = conn.LogOut(context.Background(), refresh_token)
+	err = conn.LogOut(context.Background(), refreshToken)
 	if err != nil {
 		t.Fatalf("error on LogOut: %v", err)
 	}
-	tag, err := conn.Conn.Exec(context.Background(), "SELECT * FROM refresh_tokens WHERE user_id = $1", id)
+	var tokenCount int
+	err = conn.Conn.QueryRow(context.Background(), "SELECT COUNT(*) FROM refresh_tokens WHERE user_id = $1", id).Scan(&tokenCount)
 	if err != nil {
 		t.Fatalf("error accessing the database: %v", err)
 	}
-	if tag.RowsAffected() != 0 {
+	if tokenCount != 0 {
 		t.Fatal("error: refresh token was not deleted")
 	}
 }
 
 // Тест refresh token
 func TestRefreshingToken(t *testing.T) {
-	cfg := config.Load()
-	conn := ConnUrlRepos(context.Background(), cfg)
-	defer conn.Conn.Close()
+	conn := openTestConn(t)
+	login := createTestUser(t, conn)
 
 	// Проверка создания нового рефреш токена
-	_, refresh_token, err := conn.Login("Test", "test123", context.Background(), time.Now().AddDate(0, 0, 30))
+	_, refreshToken, err := conn.Login(login, testPassword, context.Background(), time.Now().AddDate(0, 0, 30))
 	if err != nil {
 		t.Fatalf("unknown error on Login: %v", err)
 	}
-	_, new_refresh_token, err := conn.Refresh(refresh_token, time.Now().Add(5*time.Minute), context.Background())
+	_, newRefreshToken, err := conn.Refresh(refreshToken, time.Now().Add(5*time.Minute), context.Background())
 	if err != nil {
 		t.Fatalf("unknown error on Refresh: %v", err)
 	}
-	if refresh_token == new_refresh_token {
+	if refreshToken == newRefreshToken {
 		t.Fatal("error: old refresh token equels new refresh token")
 	}
-	err = conn.LogOut(context.Background(), new_refresh_token)
+	err = conn.LogOut(context.Background(), newRefreshToken)
 	if err != nil {
 		t.Fatalf("error on LogOut: %v", err)
 	}
 
 	// Проверка ошибки времени существования токена
-	_, refresh_token, err = conn.Login("Test", "test123", context.Background(), time.Now().Add(-time.Minute))
+	_, refreshToken, err = conn.Login(login, testPassword, context.Background(), time.Now().Add(-time.Minute))
 	if err != nil {
 		t.Fatalf("unknown error on Login: %v", err)
 	}
-	_, _, err = conn.Refresh(refresh_token, time.Now().Add(5*time.Minute), context.Background())
+	_, _, err = conn.Refresh(refreshToken, time.Now().Add(5*time.Minute), context.Background())
 	if err == nil {
 		t.Fatal("Expired token error missed")
 	}
-	err = conn.LogOut(context.Background(), refresh_token)
+	err = conn.LogOut(context.Background(), refreshToken)
 	if err != nil {
 		t.Fatalf("error on LogOut: %v", err)
 	}
 
 	// Попытка зарефрешить неизвестный токен
-	_, _, err = conn.Refresh(refresh_token, time.Now().Add(5*time.Minute), context.Background())
+	_, _, err = conn.Refresh(refreshToken, time.Now().Add(5*time.Minute), context.Background())
 	if err == nil {
 		t.Fatal("error missed: refresh of an unknown token")
 	}
