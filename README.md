@@ -27,6 +27,7 @@ Add product screenshots in `docs/screenshots/` and update the image paths below 
 ```text
 .
 +-- backend
+|   +-- Dockerfile                  # Multi-stage Go backend build
 |   +-- cmd/main.go                 # Backend entry point
 |   +-- docs/api.md                 # Short API notes
 |   +-- internal
@@ -39,10 +40,13 @@ Add product screenshots in `docs/screenshots/` and update the image paths below 
 |   |   +-- transport               # Route registration
 |   +-- migrations                  # SQL migrations
 +-- frontend
+|   +-- Dockerfile                  # Multi-stage React/Vite build served by Nginx
+|   +-- nginx.conf                  # Nginx static-file and API proxy config
 |   +-- src                         # React application and API client
 |   +-- test                        # Frontend tests
 |   +-- vite.config.js              # Dev server and API proxy
 +-- .env.example
++-- docker-compose.yml              # Production-style container orchestration
 +-- go.mod
 +-- README.md
 ```
@@ -152,6 +156,20 @@ JWT_SECRET=secret
 
 `BASE_URL` is passed directly to `http.ListenAndServe`, so it should be a host and port, not a URL with `http://`.
 
+For Docker Compose, the same variables point to services inside the Docker network. Typical container values are:
+
+```env
+BASE_URL=:8080
+DB_HOST=database
+DB_PORT=5432
+DB_USER=youruser
+DB_PASSWORD=yourpassword
+DB_NAME=yourdbname
+JWT_SECRET=secret
+```
+
+`BASE_URL=:8080` makes the Go server listen on port `8080` inside the backend container. `DB_HOST=database` uses the Compose service name for PostgreSQL.
+
 ## Local Development
 
 Prerequisites:
@@ -208,6 +226,127 @@ Build the frontend:
 ```bash
 npm run build
 ```
+
+## Docker
+
+The repository includes Dockerfiles for both application layers and a Compose file for running the full stack.
+
+- `backend/Dockerfile` builds the Go backend in a `golang:1.25` stage and copies the compiled `server` binary into a smaller Debian runtime image.
+- `frontend/Dockerfile` builds the Vite React app with Node and copies the generated `dist` files into an Nginx image.
+- `frontend/nginx.conf` serves the SPA files and proxies `/api/...` requests to the backend service.
+- `docker-compose.yml` starts Nginx, backend, PostgreSQL, and a one-shot migration container.
+
+The current Compose file uses prebuilt images:
+
+```yaml
+backend:
+  image: treeesk/projectgo-backend:1.1
+
+nginx:
+  image: treeesk/projectgo-frontend:1.2
+```
+
+If those images are already pushed to Docker Hub, start the stack with:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+For local image builds instead, replace the `image` entries with `build` entries or build and push new tags manually.
+
+Build and push the backend image from the repository root:
+
+```bash
+docker build -t treeesk/projectgo-backend:1.1 -f backend/Dockerfile .
+docker push treeesk/projectgo-backend:1.1
+```
+
+Build and push the frontend/Nginx image:
+
+```bash
+docker build -t treeesk/projectgo-frontend:1.2 -f frontend/Dockerfile ./frontend
+docker push treeesk/projectgo-frontend:1.2
+```
+
+After changing an image tag in `docker-compose.yml`, pull and recreate the affected containers:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+### Compose Services
+
+`nginx` is the only public service:
+
+```yaml
+ports:
+  - "80:80"
+```
+
+Open the application locally at:
+
+```text
+http://localhost
+```
+
+The backend is not published to the host. It is available only inside the Compose network:
+
+```text
+http://backend:8080
+```
+
+Nginx reaches it through `proxy_pass`:
+
+```nginx
+location /api/ {
+    proxy_pass http://backend:8080;
+}
+```
+
+PostgreSQL is exposed only inside the Docker network as:
+
+```text
+database:5432
+```
+
+### Database Migrations
+
+Migrations live in `backend/migrations`. Compose runs them through a one-shot `migrate` service after PostgreSQL becomes healthy:
+
+```yaml
+migrate:
+  image: migrate/migrate
+  volumes:
+    - ./backend/migrations:/migrations:ro
+  command:
+    [
+      "-path", "/migrations",
+      "-database", "postgres://${DB_USER}:${DB_PASSWORD}@database:${DB_PORT}/${DB_NAME}?sslmode=disable",
+      "up"
+    ]
+```
+
+The bind mount gives the migration container read-only access to the SQL files. The container sees them at `/migrations`.
+
+### Database Volume
+
+PostgreSQL data is stored in a named Docker volume:
+
+```yaml
+volumes:
+  - database-data:/var/lib/postgresql
+```
+
+The top-level declaration creates the named volume:
+
+```yaml
+volumes:
+  database-data:
+```
+
+This keeps database files outside the container filesystem, so recreating the database container does not erase data.
 
 ## Frontend Behavior
 
