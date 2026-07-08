@@ -48,7 +48,7 @@ func (h *HandlerNotes) Register(w http.ResponseWriter, r *http.Request) {
 		Value:    access_token,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   false,
 		SameSite: http.SameSiteLaxMode,
 		Expires:  expires_access,
 	})
@@ -57,7 +57,7 @@ func (h *HandlerNotes) Register(w http.ResponseWriter, r *http.Request) {
 		Value:    refresh_token,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   false,
 		SameSite: http.SameSiteLaxMode,
 		Expires:  expires_refresh,
 	})
@@ -93,7 +93,7 @@ func (h *HandlerNotes) Login(w http.ResponseWriter, r *http.Request) {
 		Value:    access_token,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   false,
 		SameSite: http.SameSiteLaxMode,
 		Expires:  expires_access,
 	})
@@ -102,7 +102,7 @@ func (h *HandlerNotes) Login(w http.ResponseWriter, r *http.Request) {
 		Value:    refresh_token,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   false,
 		SameSite: http.SameSiteLaxMode,
 		Expires:  expires_refresh,
 	})
@@ -190,7 +190,7 @@ func (h *HandlerNotes) Refresh(w http.ResponseWriter, r *http.Request) {
 		Value:    access,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   false,
 		SameSite: http.SameSiteLaxMode,
 		Expires:  expires_access,
 	})
@@ -199,7 +199,7 @@ func (h *HandlerNotes) Refresh(w http.ResponseWriter, r *http.Request) {
 		Value:    refresh,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   false,
 		SameSite: http.SameSiteLaxMode,
 		Expires:  expires_refresh,
 	})
